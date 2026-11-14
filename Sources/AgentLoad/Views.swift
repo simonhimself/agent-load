@@ -254,17 +254,23 @@ struct SessionRowView: View {
     var body: some View {
         HStack(spacing: 6) {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(row.title).font(sf(13, 500)).foregroundStyle(p.text)
-                        .lineLimit(1).truncationMode(.tail).lineBox(13)
-                    if let project = row.project {
-                        Text(project).font(sf(11)).foregroundStyle(p.grey2)
-                            .lineLimit(1).fixedSize().lineBox(11)          // project always stays visible
-                            .layoutPriority(1)
+                // Line 1: harness icon (16 × 16, centred on the line), 6 pt gap, title, project.
+                HStack(alignment: .center, spacing: 6) {
+                    HarnessIcon(harness: row.harness, p: p)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(row.title).font(sf(13, 500)).foregroundStyle(p.text)
+                            .lineLimit(1).truncationMode(.tail).lineBox(13)
+                        if let project = row.project {
+                            Text(project).font(sf(11)).foregroundStyle(p.grey2)
+                                .lineLimit(1).fixedSize().lineBox(11)          // project always stays visible
+                                .layoutPriority(1)
+                        }
                     }
                 }
+                // Line 2 aligned with the title text: icon 16 + gap 6 = 22 pt.
                 Text(row.subtitle).font(sf(11)).foregroundStyle(p.grey2)
                     .lineLimit(1).truncationMode(.tail).lineBox(11)
+                    .padding(.leading, 22)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Numbers(cpu: row.cpuPercent, mem: row.memBytes, p: p)
@@ -314,7 +320,7 @@ struct SidePanelView: View {
     /// Session panel: heading = session title (the mockup's "On hover ·" prefix is a mockup
     /// annotation); trivial process kinds hidden.
     init(row: SessionRow) {
-        heading = row.title
+        heading = "\(row.title) · \(row.harness.displayName)"   // shown in caps: "FIX LOGIN REDIRECT · CLAUDE CODE"
         switch row.state {
         case .thinking:
             items = []
@@ -369,7 +375,8 @@ struct SidePanelView: View {
     /// The kinds listed: the significant ones, or (for an idle-looking session where nothing
     /// is significant) its three heaviest, so the panel is never empty.
     static func shownKinds(_ kinds: [KindGroup]) -> [KindGroup] {
-        let significant = kinds.filter(isWorthShowing)
+        // A terminal harness's own processes ("Claude Code itself") are always listed.
+        let significant = kinds.filter { isWorthShowing($0) || $0.kind.hasSuffix(" itself") }
         return significant.isEmpty ? Array(kinds.prefix(3)) : significant
     }
 }
@@ -389,5 +396,89 @@ struct MoreButton: View {
             .onHover { hover = $0 }
             .onTapGesture(perform: action)
             .help("More")
+    }
+}
+
+// MARK: - Harness icons
+
+/// The official icon of the agent tool running a session, 16 × 16 pt, left of the title.
+/// App icons are loaded at runtime from the installed apps (nothing of other companies is
+/// shipped in this repo); Pi has no app, so its mark is drawn from its MIT-licensed logo.
+/// Fallback when the app is not installed: a grey SF Symbol "terminal".
+struct HarnessIcon: View {
+    let harness: Harness
+    let p: Palette
+    @Environment(\.colorScheme) private var scheme
+    var body: some View {
+        Group {
+            if harness == .pi {
+                PiMark()
+            } else if let img = HarnessIcons.image(harness, dark: scheme == .dark) {
+                Image(nsImage: img).resizable().interpolation(.high).aspectRatio(contentMode: .fit)
+            } else {
+                Image(systemName: "terminal").font(.system(size: 11)).foregroundStyle(p.grey2)
+            }
+        }
+        .frame(width: 16, height: 16)
+    }
+}
+
+/// Loads each icon once and keeps it (per harness and light/dark).
+enum HarnessIcons {
+    @MainActor private static var cache: [String: NSImage?] = [:]
+
+    @MainActor static func image(_ h: Harness, dark: Bool) -> NSImage? {
+        let key = "\(h.rawValue)-\(dark)"
+        if let c = cache[key] { return c }
+        let img = load(h, dark: dark)
+        cache[key] = img
+        return img
+    }
+
+    /// Candidate files per harness, first existing one wins. `icon(forFile:)` returns a generic
+    /// icon for a missing path rather than nil, so existence is checked first.
+    static func load(_ h: Harness, dark: Bool) -> NSImage? {
+        let fm = FileManager.default
+        func appIcon(_ path: String) -> NSImage? {
+            guard fm.fileExists(atPath: path) else { return nil }
+            let i = NSWorkspace.shared.icon(forFile: path)
+            i.size = NSSize(width: 32, height: 32)
+            return i
+        }
+        switch h {
+        case .openChamber: return appIcon("/Applications/OpenChamber.app")
+        case .openCode: return appIcon("/Applications/OpenCode.app")
+        case .claudeCode: return appIcon("/Applications/Claude.app")   // Claude's mark; Claude Code has no app
+        case .codex:
+            if let i = appIcon("/Applications/Codex.app") { return i }
+            // The official Codex icon shipped inside the ChatGPT app.
+            let res = "/Applications/ChatGPT.app/Contents/Resources/"
+            let file = res + (dark ? "icon-codex-dark-color.png" : "icon-codex-light.png")
+            return fm.fileExists(atPath: file) ? NSImage(contentsOfFile: file) : nil
+        case .pi: return nil
+        }
+    }
+}
+
+/// Pi's logo (https://pi.dev/logo.svg, MIT-licensed project), drawn from its three paths.
+/// The SVG's 800-unit box has wide margins around the mark; the crop 100…700 gives it about
+/// the visual size of the app icons next to it.
+struct PiMark: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let s = size.width / 600, o: CGFloat = 100
+            func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: (x - o) * s, y: (y - o) * s) }
+            func poly(_ pts: [(CGFloat, CGFloat)], _ hex: UInt32) {
+                var path = Path()
+                path.move(to: pt(pts[0].0, pts[0].1))
+                for q in pts.dropFirst() { path.addLine(to: pt(q.0, q.1)) }
+                path.closeSubpath()
+                ctx.fill(path, with: .color(Color(hex: hex)))
+            }
+            poly([(165.29, 165.29), (517.36, 165.29), (517.36, 400), (400, 400), (400, 282.65), (165.29, 282.65)], 0xF09082)
+            poly([(165.29, 282.65), (282.65, 282.65), (282.65, 400), (400, 400), (400, 517.36), (282.65, 517.36),
+                  (282.65, 634.72), (165.29, 634.72)], 0x4D9ABF)
+            poly([(517.36, 400), (634.72, 400), (634.72, 634.72), (517.36, 634.72)], 0xF1BE58)
+        }
     }
 }

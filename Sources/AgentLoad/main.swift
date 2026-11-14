@@ -4,7 +4,7 @@ import AgentLoadCore
 // Entry point.
 //   AgentLoad                       run the menu bar app
 //   AgentLoad --dump [secs]         print one snapshot (two samples `secs` apart, default 3) and exit
-//   AgentLoad --render-png <path> [--hover | --hover-tools | --hover-other | --hover-thinking | --hover-waiting] [--dark] [--mockup-data] [--swap <MB/s>]
+//   AgentLoad --render-png <path> [--hover | --hover-tools | --hover-other | --hover-thinking | --hover-waiting | --hover-claude] [--dark] [--mockup-data] [--swap <MB/s>]
 //                                   render the dropdown from live data to a PNG and exit
 let args = CommandLine.arguments
 
@@ -50,7 +50,8 @@ if let i = args.firstIndex(of: "--render-png"), i + 1 < args.count {
         Render.renderPNG(to: args[i + 1],
                          hover: args.contains("--hover") ? "session" : args.contains("--hover-tools") ? "folded:tools"
                              : args.contains("--hover-other") ? "folded:other"
-                             : args.contains("--hover-thinking") ? "thinking" : args.contains("--hover-waiting") ? "waiting" : nil,
+                             : args.contains("--hover-thinking") ? "thinking" : args.contains("--hover-waiting") ? "waiting"
+                             : args.contains("--hover-claude") ? "claude" : nil,
                           dark: args.contains("--dark"),
                          mockupData: args.contains("--mockup-data"),
                          swapMBps: args.firstIndex(of: "--swap").flatMap { i in i + 1 < args.count ? Double(args[i + 1]) : nil })

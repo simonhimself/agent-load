@@ -25,7 +25,7 @@ enum Dump {
         line("")
         line("SESSIONS")
         for r in s.sessions {
-            line("  \(r.title)  [\(r.project ?? "-")]   \(Format.cpu(r.cpuPercent))  \(Format.gb(r.memBytes))   id=\(r.id)")
+            line("  \(r.title)  [\(r.project ?? "-")]  <\(r.harness.displayName)>   \(Format.cpu(r.cpuPercent))  \(Format.gb(r.memBytes))   id=\(r.id)")
             line("    \(r.subtitle)    state=\(r.state)  folder=\(r.folderPath)")
             if !r.waitingFor.isEmpty { line("    waiting for: " + r.waitingFor.joined(separator: " | ")) }
             line("    hover: " + r.kinds.map { "\($0.label) \(Format.cpu($0.cpuPercent)) \(Format.gb($0.memBytes))" }.joined(separator: " | "))

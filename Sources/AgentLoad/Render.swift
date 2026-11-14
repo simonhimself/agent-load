@@ -28,6 +28,7 @@ enum Render {
         case "session": hoveredID = snap.sessions.first?.id
         case "thinking": hoveredID = snap.sessions.first { $0.state == .thinking }?.id
         case "waiting": hoveredID = snap.sessions.first { $0.state == .waiting }?.id
+        case "claude": hoveredID = snap.sessions.first { $0.harness == .claudeCode }?.id
         default: hoveredID = hover
         }
         model.hoveredRowID = hoveredID
