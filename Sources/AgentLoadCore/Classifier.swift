@@ -12,7 +12,10 @@ import Foundation
 ///   2. `claude` processes (+ their non-session descendants, e.g. MCP servers)
 ///   3. opencode server / opencode service (+ their non-session helpers: opencode-pty,
 ///      caffeinate, zombies)
-///   4. OpenChamber app (anything under /OpenChamber.app/ plus leftover descendants)
+///   4. OpenChamber app (anything under /OpenChamber.app/ plus leftover descendants), then the
+///      Claude desktop app: every process in Claude.app or whose responsible app is Claude.app,
+///      which includes the Virtualization.framework VM Claude starts for its local agent work
+///      (VMs of other apps, e.g. Docker or Lima, have their own responsible process)
 ///   5. orphans (re-parented to launchd) whose cwd is in a `*-wt/<name>` worktree folder
 ///      → the session that mentions that folder most in the DB
 ///   6. other apps grouped by .app bundle name (mds / mdworker → "Spotlight indexing")
@@ -81,6 +84,8 @@ public enum Classifier {
         public var server: [ProcInfo] = []
         public var service: [ProcInfo] = []
         public var openChamber: [ProcInfo] = []
+        /// Claude desktop app: main, helpers and its VM ("Claude app" in Agent tools).
+        public var claudeApp: [ProcInfo] = []
         /// App display name → processes.
         public var apps: [String: [ProcInfo]] = [:]
         public var unassigned: [ProcInfo] = []
@@ -130,6 +135,13 @@ public enum Classifier {
         if let own = bundleName(p.path) { return own }
         let resp = bundleName(p.responsiblePath)
         return resp == "OpenChamber" ? nil : resp
+    }
+
+    /// A process of the Claude desktop app: inside Claude.app, or a helper outside the bundle
+    /// (e.g. the `com.apple.Virtualization.VirtualMachine` XPC service running its VM) whose
+    /// responsible process is Claude.app.
+    public static func isClaudeApp(_ p: ProcInfo) -> Bool {
+        bundleName(p.path) == "Claude" || (bundleName(p.path) == nil && bundleName(p.responsiblePath) == "Claude")
     }
 
     static func bundleName(_ path: String) -> String? {
@@ -235,6 +247,12 @@ public enum Classifier {
         // 4. OpenChamber app: main + helpers (by bundle path), and their leftover descendants.
         for p in procs where p.path.contains("/OpenChamber.app/") && !assigned.contains(p.pid) {
             result.openChamber += takeSubtree(p.pid)
+        }
+
+        // 4b. Claude desktop app (an agent tool, not an "other app").
+        for p in procs where !assigned.contains(p.pid) && isClaudeApp(p) {
+            assigned.insert(p.pid)
+            result.claudeApp.append(p)
         }
 
         // 5. Orphans in a worktree folder.

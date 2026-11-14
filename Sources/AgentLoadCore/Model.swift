@@ -206,7 +206,8 @@ public struct Snapshot: Sendable {
     /// Active swapping, bytes/s (shown in the memory card while ≥ Format.swapShownFrom).
     public var swapBytesPerSec: Double = 0
 
-    /// Folded "Agent tools" row: OpenChamber app + opencode server + opencode service + Claude Code.
+    /// Folded "Agent tools" row: OpenChamber app + opencode server + opencode service + Claude Code
+    /// + Claude app (the desktop app).
     public var agentToolsGroup: FoldedGroup {
         var names: [String] = []
         for r in agentTools {

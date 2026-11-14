@@ -97,12 +97,19 @@ draw window material and use the flat #f5f5f7 / #2c2c2e instead.
    chevron). Hovering either opens the same side panel as a session, headed
    AGENT TOOLS / OTHER APPS and listing ALL its items with CPU and memory (no hiding of
    small items). Clicking them does nothing.
-   - **Agent tools**: grey line = member names, e.g. `OpenChamber, opencode, Claude Code ×9`;
+   - **Agent tools**: grey line = member names, e.g. `OpenChamber, opencode, Claude Code ×1, Claude app`;
      numbers = sum of its items. Items: OpenChamber app (main app + all its helper
      processes), opencode server (the `opencode serve` started by OpenChamber),
      opencode service (`opencode serve --service` and its helpers such as opencode-pty),
      Claude Code ×N (the `claude` CLI processes run by opencode; Claude Code started on its own
-     is a session row, see "Harnesses").
+     is a session row, see "Harnesses"), Claude app (owner, 2026-11-14: the Claude desktop app,
+     main + helpers by bundle path or responsible app, and the Virtualization.framework VM it runs
+     its local agent work in, recognised by its responsible process being Claude.app; other apps'
+     VMs such as Docker, Lima/Colima, UTM or Parallels stay where they were). Only the Claude app
+     row uses the "Everything else" outlier guard for memory (resident size when the footprint is
+     more than 1 GB above it), so the VM's guest memory does not inflate it. Claude desktop
+     threads are not session rows: their work runs on Anthropic's servers or inside the one
+     shared VM, which cannot be split per thread.
    - **Other apps**: grey line = the named top apps in order, then "everything else",
      e.g. `Firefox, Spotlight indexing, everything else`; numbers = sum of its items.
      Items: the biggest non-session apps by name (up to 3, ranked by share of CPU +

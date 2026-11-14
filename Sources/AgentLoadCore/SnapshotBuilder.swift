@@ -178,6 +178,13 @@ public enum SnapshotBuilder {
         addTool("opencode server", c.server)
         addTool("opencode service", c.service)
         addTool("Claude Code ×\(c.claudeCount)", c.claude)
+        // Claude desktop app. Its VM's footprint counts guest memory that is mostly not resident
+        // (12 GB footprint, 0.4 GB resident), so this row, and only this agent tools row, uses the
+        // same outlier guard as Everything else.
+        if !c.claudeApp.isEmpty {
+            tools.append(SimpleRow(name: "Claude app", cpuPercent: c.claudeApp.reduce(0) { $0 + $1.cpuPercent },
+                                   memBytes: c.claudeApp.reduce(UInt64(0)) { $0 + ramContribution($1) }, processes: c.claudeApp))
+        }
 
         // Other apps: rank by share of the machine (CPU share + memory share) so both a
         // 3 GB browser and a 60%-CPU indexer can show up.
