@@ -1,72 +1,96 @@
 # Agent Load
 
-A small macOS menu bar app that answers one question at a glance: **which agent session is
-making the Mac slow, and can I start another one?**
+**See which AI agent session is slowing down your Mac, from the menu bar.**
 
-The menu bar shows a coloured dot and the number of sessions that are running programs right
-now (`● 3`). Green means there is room for another session, amber means wait, red means
-free something up. Click it for the breakdown: CPU and memory gauges, one row per busy
-OpenChamber/opencode session (hover a row to see its programs, click to reveal its folder in
-Finder), plus two folded rows for the agent tools and for other apps (hover them for the
-details).
+![The Agent Load dropdown: an amber "Busy · memory is tight" status naming Firefox as the biggest memory user, CPU and memory gauges, three agent sessions with their CPU and memory, and a hover panel listing one session's programs](docs/assets/dropdown-preview.png)
 
-The agreed design is in [`docs/design.md`](docs/design.md); the approved look is
-[`docs/mockup.html`](docs/mockup.html).
+*Rendered from the app with illustrative sample numbers.*
 
-## Build and run
+**[Build it from source →](#install)** · macOS 14+ · no Xcode needed
 
-Needs macOS 14 or later and the Xcode Command Line Tools (full Xcode is not needed).
+## Know who is using your Mac
+
+- **See the strain at a glance.** A coloured dot and a session count sit next to Wi-Fi and
+  battery: green is calm, amber means wait, red means free something up.
+- **Find the culprit.** Every unfinished OpenCode / OpenChamber session gets a row with its
+  CPU and memory. When the Mac is strained, the line under the headline names the biggest
+  user, even when it's another app such as a browser.
+- **Look inside a session.** Hover a row to see its programs: headless Chrome, test
+  runners, dev servers. Click it to open the session's folder in Finder.
+
+## Install
+
+Needs macOS 14 or later and the Xcode Command Line Tools (`xcode-select --install`).
+Full Xcode is not required.
 
 ```sh
+git clone https://github.com/simonhimself/agent-load.git
+cd agent-load
 scripts/build-app.sh            # builds "build/Agent Load.app"
-open "build/Agent Load.app"     # starts it; the dot appears in the menu bar
+open "build/Agent Load.app"     # the dot appears in the menu bar
 ```
 
-To quit, open the dropdown and click **Quit**.
+To start it at login, copy `build/Agent Load.app` to `/Applications`, then add it under
+**System Settings → General → Login Items & Extensions → Open at Login**.
 
-### Start at login
+## How to use it
 
-The app does not install itself. To start it at login:
+1. Glance at the dot: the number is how many agent sessions have unfinished work.
+2. Click it for the breakdown: status, CPU and memory gauges, one row per session, then
+   **Agent tools** (OpenChamber, opencode, Claude Code) and **Other apps**.
+3. Hover any row for its details, and click **Quit** to close the app.
 
-1. Copy `build/Agent Load.app` to `/Applications` (optional, but keeps the path stable).
-2. Open **System Settings → General → Login Items & Extensions**.
-3. Under **Open at Login**, click **+** and choose **Agent Load**.
+CPU is shown per core: 100% is one full core, so 8 cores give 800%. The CPU gauge shows
+demand over the last minute, including programs waiting for a turn, so it can exceed the
+core count and won't always equal the sum of the rows.
 
-## How it works (short)
+## How it works
 
-- Every few seconds (3 s while the dropdown is open, 10 s while closed) it reads the process
-  list in-process (sysctl/libproc), plus one `ps` call for processes owned by other users,
-  such as Spotlight's indexer.
-- A command an agent runs starts as a shell (`zsh -c …`) under `opencode serve`, the
-  `opencode-pty` daemon, or a `claude` process. That shell and everything it starts belong
-  to one session. The session is found by looking up the exact command text in opencode's
-  database (`~/.local/share/opencode/opencode.db`), opened **read-only**.
-- Status colour: memory pressure first, then the 1-minute load average against the 8 cores.
+Every few seconds the app reads the process list. Each command an agent runs starts as a
+shell under the opencode server, so the app follows every program up to that shell and
+looks up the exact command text in opencode's local database, opened read-only, to find
+which session sent it. Sessions that are thinking or waiting on sub-sessions are taken from
+the same database.
 
-## Checking it
+- **Light footprint:** refreshes every 10 s while closed and every 3 s while open, at well
+  under 1% CPU.
+- **Memory first:** the status colour follows macOS memory pressure before CPU load,
+  because on a 16 GB machine memory usually runs out first.
+- **Never writes:** the app only reads processes and the database; it can't stop anything.
+
+Details, the attribution rules and diagnostic commands are in
+[How it works](docs/HOW-IT-WORKS.md).
+
+## Develop
 
 ```sh
-scripts/test.sh                                              # unit tests (Swift Testing)
-"build/Agent Load.app/Contents/MacOS/AgentLoad" --dump       # full snapshot as text, incl. every process per row
-"build/Agent Load.app/Contents/MacOS/AgentLoad" --verify-db  # proves the command lookup matches recent commands
-"build/Agent Load.app/Contents/MacOS/AgentLoad" --render-png /tmp/a.png [--hover] [--dark] [--mockup-data]
+scripts/test.sh                                          # Swift Testing unit tests
+"build/Agent Load.app/Contents/MacOS/AgentLoad" --dump   # live snapshot as text
 ```
 
-## Limits
+`scripts/test.sh` passes the extra framework flags Swift Testing needs when only the
+Command Line Tools are installed.
 
-- Only sessions run through OpenChamber/opencode are recognised. Claude Code or Codex
-  started on their own count under "Claude Code ×N" or "Everything else".
-- A command must run for two refreshes before its session gets a row, so very short commands
-  never show (on purpose, to avoid flicker).
-- Programs that lost their parent are matched to a session only if they run inside a
-  `*-wt/<name>` worktree folder. Other worktree layouts are not detected, because detecting
-  them would mean reading files in ~/Documents.
-- Memory per row is "footprint" (as in Activity Monitor). Footprints count compressed and
-  swapped memory at full size, so the rows can add up to more than "Memory used". "Everything
-  else" is the sum of its own processes; a process whose footprint is more than 1 GB above
-  what is resident (mostly swapped out, e.g. a virtual machine) counts with its resident size.
-- Processes owned by other users (for example Spotlight's `mds`) show their resident memory
-  instead of footprint, because macOS does not let a normal app read their footprint.
-- If the opencode database cannot be read or its layout changes, session rows fall back to
-  folder names. The app never writes to it.
-- Does not stop processes, send notifications, or start at login by itself.
+## Limitations
+
+- Recognises sessions run through OpenCode / OpenChamber only. Claude Code or Codex
+  started on their own count under "Claude Code" or "Everything else".
+- Commands shorter than two refreshes never get their own row; their CPU lands in
+  "Everything else".
+- Programs that lost their parent are matched to a session only inside `*-wt/<name>`
+  worktree folders.
+- Memory per row includes swapped-out memory, so rows can add up to more than
+  "Memory used".
+- Relies on opencode's internal database layout. If that changes, rows fall back to folder
+  names.
+- Read-only: it doesn't stop processes, send notifications, or start at login by itself.
+
+## Project guide
+
+| File | Purpose |
+| --- | --- |
+| [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md) | Sampling, attribution, memory figures, diagnostics, source layout |
+| [`docs/design.md`](docs/design.md) | Agreed design: status rules, listing rules, every dropdown element |
+| [`docs/mockup.html`](docs/mockup.html) | Approved visual reference |
+| [`scripts/build-app.sh`](scripts/build-app.sh) | Builds and ad-hoc signs the `.app` |
+| [`scripts/test.sh`](scripts/test.sh) | Runs the unit tests |

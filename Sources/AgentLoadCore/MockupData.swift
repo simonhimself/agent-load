@@ -12,7 +12,9 @@ public enum MockupData {
         }
         func r(_ n: String, _ cpu: Double, _ m: Double) -> SimpleRow { SimpleRow(name: n, cpuPercent: cpu, memBytes: gb(m), processes: []) }
         let st = StatusRules.evaluate(pressure: 2, load: 7.3, cores: 8)
-        return Snapshot(date: Date(), level: st.level, cpuLevel: .amber, memLevel: st.memLevel, headline: st.headline, verdict: st.verdict,
+        return Snapshot(date: Date(), level: st.level, cpuLevel: .amber, memLevel: st.memLevel, headline: st.headline,
+                        // Same culprit rule as the live app: memory is short, Firefox (3.0 GB) uses the most.
+                        verdict: SnapshotBuilder.culpritLine(name: "Firefox", cpuPercent: 12, memBytes: gb(3.0), byMemory: true),
                         load1: 7.3, cores: 8, memUsedBytes: gb(13.1), memTotalBytes: gb(16), pressureLevel: 2, machineCPUPercent: 600,
                         sessions: [s("W14 Images", "wiki-w14", "browser tests", 6, 210, 2.4,
                                      [k("Headless Chrome", 6, 120, 1.3), k("workerd", 1, 45, 0.4), k("Playwright runner", 1, 25, 0.3), k("vite", 1, 20, 0.4)]),
