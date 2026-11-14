@@ -88,6 +88,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 fflush(stdout)
             }
         }
+        // --debug-click: presses the menu bar item through its real action (as a mouse click
+        // does), to check that it stays highlighted while the dropdown is open.
+        if CommandLine.arguments.contains("--debug-click") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in self?.statusItem.button?.performClick(nil) }
+        }
         if CommandLine.arguments.contains("--debug-open") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
                 self?.openPanel()
