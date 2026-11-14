@@ -14,16 +14,16 @@ struct Palette {
     let scheme: ColorScheme
     private func pick(_ light: UInt32, _ dark: UInt32) -> Color { Color(hex: scheme == .dark ? dark : light) }
     var background: Color { pick(0xF5F5F7, 0x2C2C2E) }   // .menu / .side
-    /// .gg gauge cards. Translucent so they sit on the menu material without looking heavy:
-    /// white at 75% in light mode, white at 10% in dark mode (owner, 2026-11-14).
-    var card: Color { scheme == .dark ? Color.white.opacity(0.10) : Color.white.opacity(0.75) }
     var text: Color { pick(0x1D1D1F, 0xF5F5F7) }         // body text
     // Dark mode greys and the row highlight are translucent white (like the system's secondary
     // label colour), so they stay readable on the dark menu material over a bright desktop, where
     // the flat #8E8E93 got lost (2026-11-14). Over the flat render colour they look as before.
     var grey1: Color { scheme == .dark ? Color.white.opacity(0.60) : Color(hex: 0x6E6E73) }   // .verdict, .k
     var grey2: Color { scheme == .dark ? Color.white.opacity(0.50) : Color(hex: 0x86868B) }   // .sec, .pj, .sub, .ft
-    var track: Color { pick(0xE5E5EA, 0x48484A) }        // gauge track
+    /// Gauge bar track ("B · No cards", owner 2026-11-14): black 8% / white 12%, on the glass.
+    var track: Color { scheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.08) }
+    /// Hairline under the gauges: black 10% / white 15%.
+    var separator: Color { scheme == .dark ? Color.white.opacity(0.15) : Color.black.opacity(0.10) }
     var rowHover: Color { scheme == .dark ? Color.white.opacity(0.10) : Color(hex: 0xE8E8ED) }   // .row.on
     var divider: Color { pick(0xD2D2D7, 0x48484A) }      // footer border
     /// Hairline ring around the dropdown and the hover panel, as native menus have on macOS 26
@@ -78,8 +78,8 @@ let cssLineHeight: CGFloat = 1.5
 extension View {
     /// Pads a single text line (or a row of same-size text) to a CSS line box of
     /// 1.5 × `size`: the extra space splits evenly above and below, as in a browser.
-    @MainActor func lineBox(_ size: CGFloat) -> some View {
-        padding(.vertical, max(0, (size * cssLineHeight - naturalLineHeight(size)) / 2))
+    @MainActor func lineBox(_ size: CGFloat, lineHeight: CGFloat = cssLineHeight) -> some View {
+        padding(.vertical, max(0, (size * lineHeight - naturalLineHeight(size)) / 2))
     }
 }
 
@@ -148,22 +148,24 @@ struct DropdownView: View {
         Text(s.verdict).font(sf(12)).foregroundStyle(p.grey1).lineBox(12)
             .padding(.top, 2).padding(.bottom, 10)
 
-        // 2. Gauges
-        HStack(spacing: 8) {
-            Gauge(title: "CPU", value: Format.cores(load: s.load1, cores: s.cores),
+        // 2. Gauges ("B · No cards, bigger numbers", owner 2026-11-14): no card background, a big
+        //    number with a small grey "of 8 cores", a 6 pt bar, a hairline underneath.
+        //    Mockup: .gs{gap:16px;padding:0 2px 6px;border-bottom:.5px} .gg{padding:2px 4px 4px}
+        HStack(alignment: .top, spacing: 16) {
+            Gauge(title: "CPU", value: String(format: "%.1f", s.load1), unit: "of \(s.cores) cores",
                   fraction: s.load1 / Double(max(s.cores, 1)), color: Palette.status(s.cpuLevel), p: p)
             // Grey "Swapping N MB/s" line only while memory is actively moving to/from disk.
-            Gauge(title: "Memory", value: Format.memory(used: s.memUsedBytes, total: s.memTotalBytes),
+            Gauge(title: "Memory", value: String(format: "%.1f", Double(s.memUsedBytes) / Format.gib),
+                  unit: "of \(Int((Double(s.memTotalBytes) / Format.gib).rounded())) GB",
                   fraction: Double(s.memUsedBytes) / Double(max(s.memTotalBytes, 1)), color: Palette.status(s.memLevel), p: p,
                   note: Format.swapping(s.swapBytesPerSec))
         }
-        .fixedSize(horizontal: false, vertical: true)   // both cards as tall as the taller one
-        .padding(.bottom, 10)
+        .padding(.horizontal, 2).padding(.bottom, 6)
+        .overlay(alignment: .bottom) { Rectangle().fill(p.separator).frame(height: 0.5) }
 
         // 3. Sessions
-        // In the mockup the gauges' 10 px bottom margin and this header's 12 px top margin
-        // collapse (CSS margin collapsing) to 12, so 2 pt more here.
-        SectionHeader(title: "Sessions", p: p, topMargin: 2)
+        // The gauges' 4 px bottom margin and this header's 12 px top margin collapse (CSS) to 12.
+        SectionHeader(title: "Sessions", p: p)
         if s.sessions.isEmpty {
             // Not in the mockup (it always shows sessions); a quiet line instead of an empty section.
             Text("No sessions running").font(sf(11)).foregroundStyle(p.grey2).lineBox(11)
@@ -208,7 +210,10 @@ struct SectionHeader: View {
 
 struct Gauge: View {
     let title: String
+    /// Big number, e.g. "8.6".
     let value: String
+    /// Small grey text after it, e.g. "of 8 cores".
+    let unit: String
     let fraction: Double
     let color: Color
     let p: Palette
@@ -216,22 +221,29 @@ struct Gauge: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(title).font(sf(11)).foregroundStyle(p.grey1).lineBox(11)
-            Text(value).font(sf(13, 500)).foregroundStyle(p.text).lineLimit(1).lineBox(13)
+            // .v{font-size:20px;font-weight:600;letter-spacing:-.01em;line-height:1.25}
+            // .v small{font-size:12px;font-weight:400;color:#6e6e73;margin-left:3px}
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value).font(sf(20, 600)).tracking(-0.2).foregroundStyle(p.text)
+                Text(unit).font(sf(12)).foregroundStyle(p.grey1)
+            }
+            .lineLimit(1)
+            .lineBox(20, lineHeight: 1.25)
+            // .track{height:6px;margin-top:6px;border-radius:3px}
             GeometryReader { g in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2).fill(p.track)
-                    RoundedRectangle(cornerRadius: 2).fill(color)
+                    RoundedRectangle(cornerRadius: 3).fill(p.track)
+                    RoundedRectangle(cornerRadius: 3).fill(color)
                         .frame(width: g.size.width * min(max(fraction, 0), 1))
                 }
             }
-            .frame(height: 4).padding(.top, 4)
+            .frame(height: 6).padding(.top, 6)
             if let note {
                 Text(note).font(sf(11)).foregroundStyle(p.grey2).lineLimit(1).lineBox(11).padding(.top, 3)
             }
         }
-        .padding(.vertical, 7).padding(.horizontal, 9)   // mockup: padding 7px 9px
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(p.card))
+        .padding(.top, 2).padding(.horizontal, 4).padding(.bottom, 4)   // .gg{padding:2px 4px 4px}
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 
