@@ -95,12 +95,18 @@ public enum SnapshotBuilder {
                                   home: String) -> SessionRow? {
         let (cpu, mem) = sum(g.procs)
         guard HarnessDetect.isWorking(cpuPercent: cpu, transcriptModifiedMs: t?.modifiedMs, nowMs: nowMs) else { return nil }
-        let programs = g.commands.filter { !$0.isZombie }
         let startMs = g.root.startMicros / 1000
         let since = min(max(t?.lastUserMs ?? startMs, startMs), nowMs)
         let project: String? = (g.cwd.isEmpty || g.cwd == home || g.cwd == "/") ? nil : (g.cwd as NSString).lastPathComponent
         let own = g.procs.filter { HarnessDetect.terminalHarness($0) != nil }
         let ownKeys = Set(own.map(\.key))
+        // Programs it runs through shells; if none, any other child process that is busy (≥ 1% CPU),
+        // e.g. `codex sandbox -- python3 …` runs Python without a shell. Idle helpers such as MCP
+        // servers don't count, so a harness that only talks to the AI still reads "working".
+        let viaShells = g.commands.filter { !$0.isZombie }
+        let programs = viaShells.isEmpty
+            ? g.procs.filter { !ownKeys.contains($0.key) && !$0.isZombie && $0.cpuPercent >= 1 }
+            : viaShells
         var kinds = Activity.groups(for: g.procs.filter { !ownKeys.contains($0.key) })
         if !own.isEmpty {
             let (oc, om) = sum(own)
