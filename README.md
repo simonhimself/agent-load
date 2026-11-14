@@ -2,9 +2,13 @@
 
 **See which AI agent session is slowing down your Mac, from the menu bar.**
 
-![The Agent Load dropdown: an amber "Busy · memory is tight" status naming Firefox as the biggest memory user, CPU and memory gauges, six agent sessions each marked with the icon of the tool running it (OpenChamber, Claude Code, Pi, OpenCode, Codex) with their CPU and memory, and a hover panel listing one session's programs](docs/assets/dropdown-preview.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dropdown-preview-dark.png">
+  <img alt="The Agent Load dropdown: an amber &quot;Busy · memory and CPU&quot; status naming Firefox as the biggest memory user, CPU and memory gauges, six agent sessions each marked with the icon of the tool running it (OpenChamber, Claude Code, Pi, OpenCode, Codex) with their CPU and memory, and a hover panel listing one session's programs including its Claude Code agent" src="docs/assets/dropdown-preview.png">
+</picture>
 
-*Rendered from the app with illustrative sample numbers.*
+*Rendered from the app with illustrative sample numbers, in your GitHub light or dark theme. On
+macOS 26 the real dropdown sits on translucent Liquid Glass, like the system's own menus.*
 
 **[Build it from source →](#install)** · macOS 14+ · no Xcode needed
 
@@ -18,7 +22,18 @@
   includes the Claude Code process that does its thinking. When the Mac is strained, the line under the headline names the biggest
   user, even when it's another app such as a browser.
 - **Look inside a session.** Hover a row to see its programs: headless Chrome, test
-  runners, dev servers. Click it to open the session's folder in Finder.
+  runners, dev servers, the Claude Code agent. Click it to open the session's folder in Finder.
+
+## What it recognises
+
+| Tool | How it shows |
+| --- | --- |
+| OpenChamber | A row per unfinished session: running programs, thinking, or waiting for its sub-sessions. Sessions on a Claude model include their Claude Code agent process. |
+| OpenCode (desktop app or terminal) | A row per unfinished session, like OpenChamber. |
+| Claude Code, Codex, Pi started in a terminal | A row while it works, named after its conversation, with its programs. |
+| Claude desktop app | One "Claude app" line under Agent tools, including its virtual machine. |
+| Cua | One "Cua" line under Agent tools, including its Linux virtual machine. |
+| Everything else | "Other apps": the biggest apps by name, then everything else. |
 
 ## Install
 
@@ -38,12 +53,13 @@ update the installed app. To start it at login, choose **… → Open at Login**
 
 1. Glance at the dot: the number is how many agent sessions have unfinished work.
 2. Click it for the breakdown: status, CPU and memory gauges, one row per session, then
-   **Agent tools** (OpenChamber, the Claude app, Cua) and **Other apps**.
+   **Apps & tools**: **Agent tools** (OpenChamber, the Claude app, Cua) and **Other apps**.
 3. Hover any row for its details. The **…** button top-right has **Open at Login** and **Quit**.
 
 CPU is shown per core: 100% is one full core, so 8 cores give 800%. The CPU gauge shows how
 many cores are actually in use, averaged over the last 30 seconds, so a short spike doesn't
-flip the status.
+flip the status. When the Mac is busy, the line under the headline names the biggest user of
+whatever is short, and sessions sort by that resource.
 
 ## How it works
 
@@ -56,8 +72,11 @@ the same database.
 - **Light footprint:** refreshes every 10 s while closed and every 3 s while open, at well
   under 1% CPU.
 - **Memory first:** the status colour follows macOS memory pressure, and heavy active
-  swapping, before CPU load, because on a 16 GB machine memory usually runs out first. The
-  memory card shows "Swapping N MB/s" while memory is moving to and from disk.
+  swapping, before CPU, because on a 16 GB machine memory usually runs out first. The memory
+  gauge shows "Swapping N MB/s" while memory is moving to and from disk.
+- **Real CPU use:** CPU counts the processors actually in use over the last 30 seconds (amber
+  from 85%, red from 95%), not the load average, which on macOS also counts programs waiting
+  for disk or memory.
 - **Never writes:** the app only reads processes and the database; it can't stop anything.
 
 Details, the attribution rules and diagnostic commands are in
@@ -80,6 +99,8 @@ Command Line Tools are installed.
   transcript files, whose format can change. Pi support is built from its documentation and
   has not been tried with a real Pi. Codex desktop-app sessions are not listed.
 - A Claude Code started by opencode whose parent has gone looks like one started on its own.
+- Sessions disappear once finished: waiting for your next message, or with only an idle shell
+  left. A session flagged busy with no sign of life for 12 hours is treated as stuck.
 - opencode does not record which Claude Code process serves which session; the app infers it
   from the folder and the latest message. Processes it cannot match show as
   "Claude Code (unmatched)" under Agent tools.
@@ -95,7 +116,10 @@ Command Line Tools are installed.
   "Memory used".
 - Relies on opencode's internal database layout. If that changes, rows fall back to folder
   names.
-- Read-only: it doesn't stop processes, send notifications, or start at login by itself.
+- Read-only: it doesn't stop processes or send notifications. Starting at login is opt-in
+  (**… → Open at Login**).
+- macOS 14 or later; the Liquid Glass look needs macOS 26 (older versions use the previous
+  menu material).
 
 ## Icons
 
