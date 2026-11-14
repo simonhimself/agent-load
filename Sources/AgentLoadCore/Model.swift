@@ -210,6 +210,8 @@ public struct Snapshot: Sendable {
     public var toolParts: [SimpleRow] = []
     /// Active swapping, bytes/s (shown in the memory card while ≥ Format.swapShownFrom).
     public var swapBytesPerSec: Double = 0
+    /// CPU in use averaged over ~30 s (percent of one core): the CPU gauge.
+    public var cpuAveragePercent: Double = 0
 
     /// Folded "Agent tools" row.
     public var agentToolsGroup: FoldedGroup {

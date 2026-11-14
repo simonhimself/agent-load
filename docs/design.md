@@ -18,12 +18,15 @@ redesign. The owner reviews the look carefully.
 
 | Colour | Rule | Headline | Verdict line |
 |---|---|---|---|
-| Green | memory pressure normal AND 1-min load ≤ cores (8) | Calm | Room for another session |
-| Amber | memory pressure "warning" OR load > cores | Busy · memory is tight / Busy · CPU is busy | Wait before starting another session |
-| Red | memory pressure "critical" OR load > 2 × cores | Overloaded · … | Too much running: free something up |
+| Green | memory pressure normal AND CPU in use < 85% | Calm | Room for another session |
+| Amber | memory pressure "warning" (or heavy swapping) OR CPU in use ≥ 85% | Busy · memory is tight / Busy · CPU is busy | Wait before starting another session |
+| Red | memory pressure "critical" OR CPU in use ≥ 95% | Overloaded · … | Too much running: free something up |
 
 - Memory pressure is the primary signal (`kern.memorystatus_vm_pressure_level`:
-  1 normal, 2 warning, 4 critical). Load average is second.
+  1 normal, 2 warning, 4 critical). CPU is second: the share of the processors actually in
+  use, averaged over the last ~30 s (owner, 2026-11-14). Not the load average: on macOS it
+  also counts threads waiting for disk or memory, and read "37.8 of 8 cores" on a Mac that
+  was 40% busy.
 - Swap usage never changes the colour by itself (it lingers after a crunch).
 - Headline names the reason: memory, CPU, or both.
 
@@ -49,8 +52,8 @@ flat #f5f5f7 / #2c2c2e with the hairline ring instead.
 
 1. Headline with dot, verdict line in grey.
 2. Two gauges side by side, without cards ("B · No cards, bigger numbers", owner 2026-11-14):
-   - **CPU**: big "7.3" + small grey "of 8 cores" = 1-minute load average vs core count;
-     bar = load / cores, capped.
+   - **CPU**: big "7.3" + small grey "of 8 cores" = cores in use, averaged over ~30 s
+     (never more than the core count); bar = that / cores.
    - **Memory**: big "13.1" + small grey "of 16 GB" = memory used as Activity Monitor counts
      it (app memory + wired + compressed); bar = used / total. The grey "Swapping N MB/s"
      line sits under this bar when shown.

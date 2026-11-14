@@ -5,6 +5,10 @@ import Darwin
 public final class SystemStats {
     private var lastTicks: (busy: UInt64, total: UInt64)?
     private var lastSwap: (pages: UInt64, at: Date)?
+    /// Machine CPU per interval (seconds, percent) over the last `cpuWindow` seconds.
+    private var cpuHistory: [(dt: Double, cpu: Double)] = []
+    private var lastCPUAt: Date?
+    public static let cpuWindow: Double = 30
     /// Consecutive samples at or above `heavySwapRate`.
     private var heavySamples = 0
     /// Swapping at least this fast counts as heavy (bytes/s). Calm on the owner's Mac is
@@ -25,11 +29,22 @@ public final class SystemStats {
         getloadavg(&loads, 3)
         let swap = swapRate()
         heavySamples = swap >= Self.heavySwapRate ? heavySamples + 1 : 0
+        let now = Date()
+        let cpu = machineCPU()
+        // Status uses a ~30 s average so a short spike (one build step) doesn't flip the dot,
+        // while a machine that stays busy shows within half a minute.
+        if let last = lastCPUAt, now > last { cpuHistory.append((now.timeIntervalSince(last), cpu)) }
+        lastCPUAt = now
+        var kept: [(dt: Double, cpu: Double)] = []; var span = 0.0
+        for e in cpuHistory.reversed() where span < Self.cpuWindow { kept.insert(e, at: 0); span += e.dt }
+        cpuHistory = kept
+        let avg = span > 0 ? kept.reduce(0) { $0 + $1.dt * $1.cpu } / span : cpu
         return SystemTotals(load1: loads[0], cores: cores,
                             pressureLevel: Int(Self.sysctlInt32("kern.memorystatus_vm_pressure_level") ?? 1),
                             memUsedBytes: Self.memoryUsed(), memTotalBytes: memTotal,
-                            machineCPUPercent: machineCPU(),
-                            swapBytesPerSec: swap, heavySwap: heavySamples >= Self.heavySamplesNeeded)
+                            machineCPUPercent: cpu,
+                            swapBytesPerSec: swap, heavySwap: heavySamples >= Self.heavySamplesNeeded,
+                            cpuAveragePercent: avg)
     }
 
     /// Swap-ins + swap-outs since the previous call, in bytes per second (0 on the first call).

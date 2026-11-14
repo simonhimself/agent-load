@@ -26,7 +26,8 @@ flowchart LR
 - CPU % per row: CPU time used since the last sample, divided by the time between samples;
   100% = one full core. New processes are measured over at least 1 s and capped at all cores.
 - System status: memory pressure (`kern.memorystatus_vm_pressure_level`) first, then the
-  1-minute load average against the core count. The amount in swap never changes the colour,
+  processors' real use averaged over ~30 s (amber from 85%, red from 95%). The load
+  average is not used: on macOS it also counts threads waiting for disk or memory. The amount in swap never changes the colour,
   because it lingers after a crunch. Active swapping does: the memory card shows
   "Swapping N MB/s" from 1 MB/s, and 30 MB/s or more in two consecutive refreshes turns
   memory amber ("memory is swapping").

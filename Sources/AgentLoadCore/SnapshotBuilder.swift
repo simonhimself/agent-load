@@ -13,8 +13,12 @@ public struct SystemTotals: Sendable {
     public var swapBytesPerSec: Double
     /// Swapping has been heavy for several seconds (see SystemStats.heavySwapRate).
     public var heavySwap: Bool
+    /// Machine CPU averaged over the last ~30 s (percent of one core). Drives the CPU gauge and
+    /// the CPU status; `machineCPUPercent` (this interval) stays the basis of "Everything else".
+    public var cpuAveragePercent: Double
     public init(load1: Double, cores: Int, pressureLevel: Int, memUsedBytes: UInt64, memTotalBytes: UInt64, machineCPUPercent: Double,
-                swapBytesPerSec: Double = 0, heavySwap: Bool = false) {
+                swapBytesPerSec: Double = 0, heavySwap: Bool = false, cpuAveragePercent: Double? = nil) {
+        self.cpuAveragePercent = cpuAveragePercent ?? machineCPUPercent
         self.load1 = load1; self.cores = cores; self.pressureLevel = pressureLevel
         self.memUsedBytes = memUsedBytes; self.memTotalBytes = memTotalBytes; self.machineCPUPercent = machineCPUPercent
         self.swapBytesPerSec = swapBytesPerSec; self.heavySwap = heavySwap
@@ -132,7 +136,8 @@ public enum SnapshotBuilder {
     public static func build(classification c: Classifier.Result, totals t: SystemTotals, now: Date,
                              home: String, notes: [String] = [], dbSessions: [DBSession] = [],
                              transcripts: [ProcKey: TranscriptInfo] = [:], brains: [ProcKey: String] = [:]) -> Snapshot {
-        let status = StatusRules.evaluate(pressure: t.pressureLevel, load: t.load1, cores: t.cores, heavySwap: t.heavySwap)
+        let status = StatusRules.evaluate(pressure: t.pressureLevel, busyCores: t.cpuAveragePercent / 100, cores: t.cores,
+                                          heavySwap: t.heavySwap)
         let nowMicros = Int64(now.timeIntervalSince1970 * 1_000_000)
 
         // Sessions. Throwaway test sessions in temp folders (e.g. /private/tmp/ar-v2-*) are
@@ -278,6 +283,7 @@ public enum SnapshotBuilder {
         snap.allAppNames = c.apps.keys.sorted()
         snap.toolParts = toolParts
         snap.swapBytesPerSec = t.swapBytesPerSec
+        snap.cpuAveragePercent = t.cpuAveragePercent
         return snap
     }
 }

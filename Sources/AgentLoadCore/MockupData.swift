@@ -15,11 +15,11 @@ public enum MockupData {
             return r
         }
         func r(_ n: String, _ cpu: Double, _ m: Double) -> SimpleRow { SimpleRow(name: n, cpuPercent: cpu, memBytes: gb(m), processes: []) }
-        let st = StatusRules.evaluate(pressure: 2, load: 7.3, cores: 8)
-        return Snapshot(date: Date(), level: st.level, cpuLevel: .amber, memLevel: st.memLevel, headline: st.headline,
+        let st = StatusRules.evaluate(pressure: 2, busyCores: 7.3, cores: 8)
+        var snap = Snapshot(date: Date(), level: st.level, cpuLevel: .amber, memLevel: st.memLevel, headline: st.headline,
                         // Same culprit rule as the live app: memory is short, Firefox (3.0 GB) uses the most.
                         verdict: SnapshotBuilder.culpritLine(name: "Firefox", cpuPercent: 12, memBytes: gb(3.0), byMemory: true),
-                        load1: 7.3, cores: 8, memUsedBytes: gb(13.1), memTotalBytes: gb(16), pressureLevel: 2, machineCPUPercent: 600,
+                        load1: 7.3, cores: 8, memUsedBytes: gb(13.1), memTotalBytes: gb(16), pressureLevel: 2, machineCPUPercent: 730,
                         // One session per harness (docs/mockup.html v7), ordered by the app's own sorter.
                         sessions: SessionListing.sorted([
                             // An OpenChamber session on a Claude model: its Claude Code brain is part of the row.
@@ -39,5 +39,7 @@ public enum MockupData {
                         agentTools: [r("OpenChamber", 26, 1.9), r("Claude app", 20, 1.0), r("Cua", 5, 0.3)],
                         otherApps: [r("Firefox", 12, 3.0), r("Spotlight indexing", 60, 0.2)], everythingElse: r("Everything else", 20, 1.9),
                         listedMemBytes: 0, listedCPUPercent: 0, notes: [])
+        snap.cpuAveragePercent = 730   // the CPU gauge shows cores in use (30 s average)
+        return snap
     }
 }

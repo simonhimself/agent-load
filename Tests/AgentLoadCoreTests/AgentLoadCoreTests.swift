@@ -333,28 +333,34 @@ struct ActivityTests {
 @Suite("Status rules")
 struct StatusTests {
     @Test func green() {
-        let r = StatusRules.evaluate(pressure: 1, load: 8.0, cores: 8)   // load == cores is still green
+        let r = StatusRules.evaluate(pressure: 1, busyCores: 6.7, cores: 8)   // under 85% busy
         #expect(r.level == .green && r.headline == "Calm" && r.verdict == "Room for another session")
     }
     @Test func amberMemory() {
-        let r = StatusRules.evaluate(pressure: 2, load: 2, cores: 8)
+        let r = StatusRules.evaluate(pressure: 2, busyCores: 2, cores: 8)
         #expect(r.level == .amber && r.headline == "Busy · memory is tight" && r.verdict == "Wait before starting another session")
         #expect(r.memLevel == .amber && r.cpuLevel == .green)
     }
     @Test func amberCPU() {
-        let r = StatusRules.evaluate(pressure: 1, load: 8.1, cores: 8)
+        let r = StatusRules.evaluate(pressure: 1, busyCores: 6.8, cores: 8)    // 85% busy
         #expect(r.level == .amber && r.headline == "Busy · CPU is busy")
     }
     @Test func amberBoth() {
-        #expect(StatusRules.evaluate(pressure: 2, load: 9, cores: 8).headline == "Busy · memory and CPU")
-        #expect(StatusRules.evaluate(pressure: 2, load: 17, cores: 8).headline == "Overloaded · memory and CPU")
+        #expect(StatusRules.evaluate(pressure: 2, busyCores: 7, cores: 8).headline == "Busy · memory and CPU")
+        #expect(StatusRules.evaluate(pressure: 2, busyCores: 7.7, cores: 8).headline == "Overloaded · memory and CPU")
     }
     @Test func red() {
-        let m = StatusRules.evaluate(pressure: 4, load: 1, cores: 8)
+        let m = StatusRules.evaluate(pressure: 4, busyCores: 1, cores: 8)
         #expect(m.level == .red && m.headline == "Overloaded · memory is critical" && m.verdict == "Too much running: free something up")
-        let c = StatusRules.evaluate(pressure: 1, load: 16.1, cores: 8)
+        let c = StatusRules.evaluate(pressure: 1, busyCores: 7.6, cores: 8)       // 95% busy (30 s average)
         #expect(c.level == .red && c.headline == "Overloaded · CPU is overloaded")
-        #expect(StatusRules.evaluate(pressure: 1, load: 16, cores: 8).level == .amber)   // exactly 2× is not red
+        #expect(StatusRules.evaluate(pressure: 1, busyCores: 7.5, cores: 8).level == .amber)
+    }
+    @Test func loadAverageIsNotAnInput() {
+        // A high load average with idle processors (macOS counts threads waiting for disk) stays calm.
+        let t = SystemTotals(load1: 37.8, cores: 8, pressureLevel: 1, memUsedBytes: 1, memTotalBytes: 16 << 30, machineCPUPercent: 340)
+        let s = SnapshotBuilder.build(classification: Classifier.Result(), totals: t, now: Date(), home: home)
+        #expect(s.level == .green && s.cpuLevel == .green)
     }
 }
 
@@ -443,7 +449,9 @@ struct CulpritTests {
         // Firefox is not in the top 3 shown apps here only by name; it is the biggest memory user.
         c.apps = ["Firefox": [P(20, 1, "firefox", path: "/Applications/Firefox.app/Contents/MacOS/firefox", cpu: 5, mem: 7_301_444_403)]]
         c.claude = [P(30, 1108, "claude", path: "/c", cpu: 400, mem: 100_000_000)]; c.claudeCount = 9
-        let t = SystemTotals(load1: load, cores: 8, pressureLevel: pressure, memUsedBytes: 1, memTotalBytes: 16 << 30, machineCPUPercent: 700)
+        // CPU status follows cores in use: "load" here stands for a busy (amber) vs calm machine.
+        let t = SystemTotals(load1: load, cores: 8, pressureLevel: pressure, memUsedBytes: 1, memTotalBytes: 16 << 30,
+                             machineCPUPercent: load > 8 ? 780 : 300)
         return SnapshotBuilder.build(classification: c, totals: t, now: Date(timeIntervalSince1970: 100), home: home)
     }
 
@@ -475,12 +483,12 @@ struct SwapTests {
     }
 
     @Test func heavySwapTurnsMemoryAmberWithItsOwnReason() {
-        let r = StatusRules.evaluate(pressure: 1, load: 3, cores: 8, heavySwap: true)
+        let r = StatusRules.evaluate(pressure: 1, busyCores: 3, cores: 8, heavySwap: true)
         #expect(r.level == .amber && r.memLevel == .amber && r.headline == "Busy · memory is swapping")
         // Real pressure keeps its own wording; critical stays red.
-        #expect(StatusRules.evaluate(pressure: 2, load: 3, cores: 8, heavySwap: true).headline == "Busy · memory is tight")
-        #expect(StatusRules.evaluate(pressure: 4, load: 3, cores: 8, heavySwap: true).level == .red)
-        #expect(StatusRules.evaluate(pressure: 1, load: 3, cores: 8).level == .green)
+        #expect(StatusRules.evaluate(pressure: 2, busyCores: 3, cores: 8, heavySwap: true).headline == "Busy · memory is tight")
+        #expect(StatusRules.evaluate(pressure: 4, busyCores: 3, cores: 8, heavySwap: true).level == .red)
+        #expect(StatusRules.evaluate(pressure: 1, busyCores: 3, cores: 8).level == .green)
     }
 
     @Test func heavySwapNamesMemoryCulpritAndSortsByMemory() {

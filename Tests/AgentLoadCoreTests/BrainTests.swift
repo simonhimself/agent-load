@@ -77,7 +77,8 @@ struct BrainRowTests {
         c.claudeApp = [P(100, 1, "Claude", cpu: 1, mem: gb / 4)]
         let db = [DBSession(id: "think", title: "Plugin review", directory: dir, timeBusy: now - 60_000, timeIdle: nil, lastActivity: now,
                             openChamberOwn: true, provider: "claude-code")]
-        let t = SystemTotals(load1: load, cores: 8, pressureLevel: 1, memUsedBytes: 1, memTotalBytes: 16 * gb, machineCPUPercent: 400)
+        let t = SystemTotals(load1: load, cores: 8, pressureLevel: 1, memUsedBytes: 1, memTotalBytes: 16 * gb,
+                             machineCPUPercent: load > 8 ? 780 : 400)   // CPU status follows cores in use
         return SnapshotBuilder.build(classification: c, totals: t, now: Date(timeIntervalSince1970: Double(now) / 1000),
                                      home: "/Users/me", dbSessions: db, brains: brains)
     }
@@ -105,7 +106,7 @@ struct BrainRowTests {
     }
 
     @Test func culpritNamesOpenChamberOrTheSession() {
-        // CPU short (load 12 > 8): the session with its 300% brain is the biggest user.
+        // CPU short (cores in use ≥ 85%): the session with its 300% brain is the biggest user.
         #expect(build(brains: [ProcKey(pid: 500, startMicros: 1): "think"], load: 12).verdict == "Plugin review is using 3.0 cores")
         // Without the match the unmatched brains are, named without the count.
         #expect(build(brains: [:], load: 12).verdict == "Claude Code (unmatched) is using 3.0 cores")

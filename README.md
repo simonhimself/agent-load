@@ -41,9 +41,9 @@ update the installed app. To start it at login, choose **… → Open at Login**
    **Agent tools** (OpenChamber, the Claude app, Cua) and **Other apps**.
 3. Hover any row for its details. The **…** button top-right has **Open at Login** and **Quit**.
 
-CPU is shown per core: 100% is one full core, so 8 cores give 800%. The CPU gauge shows
-demand over the last minute, including programs waiting for a turn, so it can exceed the
-core count and won't always equal the sum of the rows.
+CPU is shown per core: 100% is one full core, so 8 cores give 800%. The CPU gauge shows how
+many cores are actually in use, averaged over the last 30 seconds, so a short spike doesn't
+flip the status.
 
 ## How it works
 

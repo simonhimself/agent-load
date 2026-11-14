@@ -152,8 +152,9 @@ struct DropdownView: View {
         //    number with a small grey "of 8 cores", a 6 pt bar, a hairline underneath.
         //    Mockup: .gs{gap:16px;padding:0 2px 6px;border-bottom:.5px} .gg{padding:2px 4px 4px}
         HStack(alignment: .top, spacing: 16) {
-            Gauge(title: "CPU", value: String(format: "%.1f", s.load1), unit: "of \(s.cores) cores",
-                  fraction: s.load1 / Double(max(s.cores, 1)), color: Palette.status(s.cpuLevel), p: p)
+            // Cores actually in use (not the load average), so it never exceeds the core count.
+            Gauge(title: "CPU", value: String(format: "%.1f", s.cpuAveragePercent / 100), unit: "of \(s.cores) cores",
+                  fraction: s.cpuAveragePercent / Double(max(s.cores, 1) * 100), color: Palette.status(s.cpuLevel), p: p)
             // Grey "Swapping N MB/s" line only while memory is actively moving to/from disk.
             Gauge(title: "Memory", value: String(format: "%.1f", Double(s.memUsedBytes) / Format.gib),
                   unit: "of \(Int((Double(s.memTotalBytes) / Format.gib).rounded())) GB",
