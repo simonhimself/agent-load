@@ -531,7 +531,7 @@ struct SubtitleTests {
     }
 }
 
-@Suite("Finished sessions with only a bare shell, home folder project")
+@Suite("Finished sessions with only a bare shell; home folder project")
 struct BareShellTests {
     let now: Int64 = 1_800_000_000_000
     func row(_ id: String, _ procs: [ProcInfo]) -> SessionRow {
@@ -549,8 +549,8 @@ struct BareShellTests {
         let busy = DBSession(id: "a", title: "Busy", directory: "/x", timeBusy: now - 1000, timeIdle: nil, lastActivity: now)
         #expect(SessionListing.rows(processRows: [row("a", [shell])], db: [busy], nowMs: now, home: home).count == 1)
     }
-    @Test func homeFolderIsNoProject() {
-        #expect(SnapshotBuilder.projectName(directory: home, home: home) == nil)
+    @Test func homeFolderShowsItsName() {
+        #expect(SnapshotBuilder.projectName(directory: home, home: home) == (home as NSString).lastPathComponent)
         #expect(SnapshotBuilder.projectName(directory: "\(home)/dev/app", home: home) == "app")
     }
 }

@@ -47,9 +47,8 @@ public enum SnapshotBuilder {
     /// Project name for the grey text next to the title: basename of the session directory,
     /// omitted for OpenChamber's scratch chats (~/.config/openchamber/chats/...).
     public static func projectName(directory: String, home: String) -> String? {
+        // Always shown, also for the home folder (owner, 2026-11-14: then it reads as the user name).
         if directory.isEmpty || directory == "/" { return nil }
-        // The home folder is not a project (sessions started from ~ would show the user name).
-        if directory == home || directory == home + "/" { return nil }
         if directory.hasPrefix(home + "/.config/openchamber/chats") { return nil }
         return (directory as NSString).lastPathComponent
     }
@@ -99,7 +98,7 @@ public enum SnapshotBuilder {
         guard HarnessDetect.isWorking(cpuPercent: cpu, transcriptModifiedMs: t?.modifiedMs, nowMs: nowMs) else { return nil }
         let startMs = g.root.startMicros / 1000
         let since = min(max(t?.lastUserMs ?? startMs, startMs), nowMs)
-        let project: String? = (g.cwd.isEmpty || g.cwd == home || g.cwd == "/") ? nil : (g.cwd as NSString).lastPathComponent
+        let project: String? = (g.cwd.isEmpty || g.cwd == "/") ? nil : (g.cwd as NSString).lastPathComponent
         let own = g.procs.filter { HarnessDetect.terminalHarness($0) != nil }
         let ownKeys = Set(own.map(\.key))
         // Programs it runs through shells; if none, any other child process that is busy (≥ 1% CPU),
