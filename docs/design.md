@@ -229,3 +229,10 @@ Green keeps "Room for another session".
   macOS still reports normal pressure. Headline: "Busy · memory is swapping"; the culprit line
   and memory sorting then apply as for any memory problem. Real pressure keeps its own wording.
 
+
+## Row hover (owner, 2026-11-14)
+
+Hovering a session row or the Agent tools / Other apps row highlights it in the system accent
+colour (blue by default, follows System Settings), 8 pt corners, with all its text white and the
+grey text white at 80%, like a highlighted item in a native menu. The "…" button keeps its grey
+hover.

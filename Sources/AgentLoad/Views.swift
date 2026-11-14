@@ -12,19 +12,26 @@ import AgentLoadCore
 /// the PNG renders must match the live window.
 struct Palette {
     let scheme: ColorScheme
+    /// Text on the accent-coloured hover highlight: white, like a selected native menu item.
+    var onAccent = false
+    /// Same palette for content drawn on the hover highlight.
+    func accented() -> Palette { var c = self; c.onAccent = true; return c }
     private func pick(_ light: UInt32, _ dark: UInt32) -> Color { Color(hex: scheme == .dark ? dark : light) }
     var background: Color { pick(0xF5F5F7, 0x2C2C2E) }   // .menu / .side
-    var text: Color { pick(0x1D1D1F, 0xF5F5F7) }         // body text
+    var text: Color { onAccent ? .white : pick(0x1D1D1F, 0xF5F5F7) }         // body text
     // Dark mode greys and the row highlight are translucent white (like the system's secondary
     // label colour), so they stay readable on the dark menu material over a bright desktop, where
     // the flat #8E8E93 got lost (2026-11-14). Over the flat render colour they look as before.
-    var grey1: Color { scheme == .dark ? Color.white.opacity(0.60) : Color(hex: 0x6E6E73) }   // .verdict, .k
-    var grey2: Color { scheme == .dark ? Color.white.opacity(0.50) : Color(hex: 0x86868B) }   // .sec, .pj, .sub, .ft
+    var grey1: Color { onAccent ? Color.white.opacity(0.85) : scheme == .dark ? Color.white.opacity(0.60) : Color(hex: 0x6E6E73) }   // .verdict, .k
+    var grey2: Color { onAccent ? Color.white.opacity(0.80) : scheme == .dark ? Color.white.opacity(0.50) : Color(hex: 0x86868B) }   // .sec, .pj, .sub, .ft
     /// Gauge bar track ("B · No cards", owner 2026-11-14): black 8% / white 12%, on the glass.
     var track: Color { scheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.08) }
     /// Hairline under the gauges: black 10% / white 15%.
     var separator: Color { scheme == .dark ? Color.white.opacity(0.15) : Color.black.opacity(0.10) }
-    var rowHover: Color { scheme == .dark ? Color.white.opacity(0.10) : Color(hex: 0xE8E8ED) }   // .row.on
+    var rowHover: Color { scheme == .dark ? Color.white.opacity(0.10) : Color(hex: 0xE8E8ED) }   // "…" button hover
+    /// Session / folded row hover: the system accent colour, like a highlighted native menu item
+    /// (owner, 2026-11-14). Follows System Settings → Appearance → Accent colour (blue by default).
+    var rowAccent: Color { Color(nsColor: .controlAccentColor) }
     var divider: Color { pick(0xD2D2D7, 0x48484A) }      // footer border
     /// Hairline ring around the dropdown and the hover panel, as native menus have on macOS 26
     /// (measured from a native NSMenu: slightly darker than the menu in light mode, lighter in dark).
@@ -282,7 +289,9 @@ extension View {
 struct SessionRowView: View {
     let row: SessionRow
     let hovered: Bool
-    let p: Palette
+    let base: Palette
+    init(row: SessionRow, hovered: Bool, p: Palette) { self.row = row; self.hovered = hovered; self.base = p }
+    private var p: Palette { hovered ? base.accented() : base }
     var body: some View {
         HStack(spacing: 6) {
             VStack(alignment: .leading, spacing: 0) {
@@ -308,7 +317,7 @@ struct SessionRowView: View {
             Numbers(cpu: row.cpuPercent, mem: row.memBytes, p: p)
         }
         .padding(.vertical, 5).padding(.horizontal, 4)   // mockup: padding 5px 4px
-        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(hovered ? p.rowHover : Color.clear))
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovered ? p.rowAccent : Color.clear))
     }
 }
 
@@ -316,7 +325,9 @@ struct SessionRowView: View {
 struct FoldedRowView: View {
     let group: FoldedGroup
     let hovered: Bool
-    let p: Palette
+    let base: Palette
+    init(group: FoldedGroup, hovered: Bool, p: Palette) { self.group = group; self.hovered = hovered; self.base = p }
+    private var p: Palette { hovered ? base.accented() : base }
     var body: some View {
         HStack(spacing: 6) {
             VStack(alignment: .leading, spacing: 0) {
@@ -327,7 +338,7 @@ struct FoldedRowView: View {
             Numbers(cpu: group.cpuPercent, mem: group.memBytes, p: p)
         }
         .padding(.vertical, 5).padding(.horizontal, 4)   // same as session rows
-        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(hovered ? p.rowHover : Color.clear))
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovered ? p.rowAccent : Color.clear))
     }
 }
 
