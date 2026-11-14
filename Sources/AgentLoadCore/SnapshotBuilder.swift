@@ -47,7 +47,9 @@ public enum SnapshotBuilder {
     /// Project name for the grey text next to the title: basename of the session directory,
     /// omitted for OpenChamber's scratch chats (~/.config/openchamber/chats/...).
     public static func projectName(directory: String, home: String) -> String? {
-        if directory.isEmpty { return nil }
+        if directory.isEmpty || directory == "/" { return nil }
+        // The home folder is not a project (sessions started from ~ would show the user name).
+        if directory == home || directory == home + "/" { return nil }
         if directory.hasPrefix(home + "/.config/openchamber/chats") { return nil }
         return (directory as NSString).lastPathComponent
     }

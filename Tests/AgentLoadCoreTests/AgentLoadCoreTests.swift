@@ -530,3 +530,27 @@ struct SubtitleTests {
         #expect(rows.first { $0.id == "p" }?.subtitle == "waiting for 1 session · 1 min")
     }
 }
+
+@Suite("Finished sessions with only a bare shell, home folder project")
+struct BareShellTests {
+    let now: Int64 = 1_800_000_000_000
+    func row(_ id: String, _ procs: [ProcInfo]) -> SessionRow {
+        SessionRow(id: id, title: id, project: nil, folderName: "", folderPath: "/x", activity: "shell",
+                   runningSeconds: 600, cpuPercent: 0, memBytes: 0, kinds: [], processes: procs)
+    }
+    @Test func finishedBareShellIsDropped() {
+        let done = DBSession(id: "a", title: "Done", directory: "/x", timeBusy: now - 600_000, timeIdle: now - 500_000, lastActivity: now)
+        let shell = P(10, 1108, "zsh", path: "/bin/zsh")
+        #expect(SessionListing.rows(processRows: [row("a", [shell])], db: [done], nowMs: now, home: home).isEmpty)
+        // A real program still running keeps it listed (e.g. a sleep wait loop).
+        let sleep = P(11, 10, "sleep", path: "/bin/sleep")
+        #expect(SessionListing.rows(processRows: [row("a", [shell, sleep])], db: [done], nowMs: now, home: home).count == 1)
+        // Still busy in the DB keeps it listed.
+        let busy = DBSession(id: "a", title: "Busy", directory: "/x", timeBusy: now - 1000, timeIdle: nil, lastActivity: now)
+        #expect(SessionListing.rows(processRows: [row("a", [shell])], db: [busy], nowMs: now, home: home).count == 1)
+    }
+    @Test func homeFolderIsNoProject() {
+        #expect(SnapshotBuilder.projectName(directory: home, home: home) == nil)
+        #expect(SnapshotBuilder.projectName(directory: "\(home)/dev/app", home: home) == "app")
+    }
+}

@@ -72,6 +72,9 @@ flat #f5f5f7 / #2c2c2e with the hairline ring instead.
    3. it is idle itself but a descendant session (via `parent_id`, any depth) qualifies
       under 1 or 2 (e.g. an orchestrator waiting on its workers).
    Finished sessions waiting for the user (`time_idle > time_busy`) are not listed.
+   A finished session whose only remaining programs are bare shells (nothing running inside)
+   is not listed either; one still running a real program (e.g. a `sleep` wait loop) stays.
+   Sessions started from the home folder show no project name.
    Throwaway test sessions (e.g. ones other agents create in /tmp) are listed like any
    other session, because they use capacity (owner, 2026-11-14).
    - Folder part of a process row: the worktree name when the programs run in a

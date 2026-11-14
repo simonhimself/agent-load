@@ -42,8 +42,16 @@ public enum SessionListing {
                             byMemory: Bool = false) -> [SessionRow] {
         let byID = Dictionary(db.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let ocIDs = openChamberIDs(db)
-        var rows = processRows
-        var rowIDs = Set(processRows.map(\.id))
+        // A finished session (idle in the DB) whose only remaining programs are bare shells with
+        // nothing running in them isn't doing anything: don't list it. Sessions still running a
+        // real program (e.g. a `sleep` wait loop) or still busy in OpenChamber/OpenCode stay.
+        func finishedBareShells(_ r: SessionRow) -> Bool {
+            guard let s = byID[r.id], !s.flaggedBusy else { return false }
+            let live = r.processes.filter { !$0.isZombie }
+            return !live.isEmpty && live.allSatisfy { Activity.kind(of: $0) == "shell" }
+        }
+        var rows = processRows.filter { !finishedBareShells($0) }
+        var rowIDs = Set(rows.map(\.id))
 
         // Active sessions and when they became active (ms).
         var activeSince: [String: Int64] = [:]
