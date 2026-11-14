@@ -276,7 +276,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - "…" menu
 
-    /// Native menu at the mouse: "Open at Login" (checkmark = registered) and "Quit Agent Load ⌘Q".
+    /// Native menu at the mouse: "Open at Login" (checkmark = registered) and "Quit ⌘Q".
     /// Open at Login uses SMAppService.mainApp, so it registers whichever copy is running
     /// (normally /Applications/Agent Load.app).
     private func showMoreMenu() {
@@ -286,7 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quit Agent Load", action: #selector(quitApp), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)

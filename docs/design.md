@@ -92,7 +92,7 @@ redesign. The owner reviews the look carefully.
      memory of the unlisted processes themselves (footprint; resident size when a
      process's footprint is more than 1 GB above its resident size, i.e. mostly swapped
      out, such as a virtual machine).
-5. No footer. A grey "…" button top-right in the header opens a small native menu: "Open at Login" (checkmark) and "Quit Agent Load ⌘Q" (owner chose this, 2026-11-14; replaces the footer Quit and the "Updated N s ago" timer).
+5. No footer. A grey "…" button top-right in the header opens a small native menu: "Open at Login" (checkmark) and "Quit ⌘Q" (owner chose this, 2026-11-14; replaces the footer Quit and the "Updated N s ago" timer).
 
 ## Attribution (how a program is assigned to a session)
 
