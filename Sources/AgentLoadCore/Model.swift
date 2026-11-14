@@ -121,9 +121,11 @@ public struct SessionRow: Sendable, Identifiable {
     /// The agent tool running this session (icon left of the title, hover panel heading).
     public var harness: Harness = .openCode
 
-    /// `wiki-w14 · browser tests · 6 min`
+    /// `wiki-w14 · browser tests · 6 min`. The folder part is left out when it only repeats the
+    /// project name shown next to the title (owner, 2026-11-14): `waiting for 2 sessions · 41 min`.
     public var subtitle: String {
-        [folderName, activity, Format.duration(runningSeconds)].filter { !$0.isEmpty }.joined(separator: " · ")
+        let folder = folderName == project ? "" : folderName
+        return [folder, activity, Format.duration(runningSeconds)].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 }
 

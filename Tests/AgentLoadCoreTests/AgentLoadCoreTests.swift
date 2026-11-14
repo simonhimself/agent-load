@@ -209,9 +209,11 @@ struct ListingTests {
         #expect(r[0].folderPath == "" && r[0].cpuPercent == 0 && r[0].memBytes == 0)
     }
 
-    @Test func projectFolderShownForThinkingRow() {
+    @Test func projectFolderNotRepeatedForThinkingRow() {
         let s = DBSession(id: "a", title: "T", directory: proj, timeBusy: now - 2 * min, timeIdle: now - 3 * min, lastActivity: now)
-        #expect(rows([], [s]).first?.subtitle == "my-app · thinking · 2 min")
+        // The folder equals the project shown next to the title, so the grey line leaves it out
+        // (owner, 2026-11-14); clicking still reveals the folder.
+        #expect(rows([], [s]).first?.subtitle == "thinking · 2 min")
         #expect(rows([], [s]).first?.folderPath == proj)
     }
 
@@ -494,5 +496,35 @@ struct SwapTests {
         #expect(s.verdict == "Big is using 2.8 GB")
         #expect(s.sessions.map(\.title) == ["Big", "Fast"])
         #expect(s.swapBytesPerSec == 85_000_000)
+    }
+}
+
+@Suite("Grey line without a repeated project")
+struct SubtitleTests {
+    func row(_ project: String?, _ folder: String, _ activity: String, state: SessionState = .processes) -> SessionRow {
+        SessionRow(id: "x", title: "T", project: project, folderName: folder, folderPath: "", activity: activity,
+                   runningSeconds: 41 * 60, cpuPercent: 0, memBytes: 0, kinds: [], processes: [], state: state)
+    }
+
+    @Test func folderEqualToProjectIsDropped() {
+        #expect(row("my-app", "my-app", "waiting for 2 sessions", state: .waiting).subtitle == "waiting for 2 sessions · 41 min")
+        #expect(row("my-app", "my-app", "thinking", state: .thinking).subtitle == "thinking · 41 min")
+        #expect(row("my-app", "my-app", "vite").subtitle == "vite · 41 min")
+    }
+
+    @Test func differentFolderStays() {
+        #expect(row("my-app", "wiki-w14", "browser tests").subtitle == "wiki-w14 · browser tests · 41 min")
+        #expect(row(nil, "", "thinking", state: .thinking).subtitle == "thinking · 41 min")
+    }
+
+    @Test func dbRowsToo() {
+        // Waiting / thinking rows built from the DB carry the project as their folder part.
+        let now: Int64 = 10_000_000
+        let db = [DBSession(id: "p", title: "Parent", directory: "/Users/me/dev/my-app"),
+                  DBSession(id: "c", title: "Child", directory: "/Users/me/dev/my-app", parentID: "p",
+                            timeBusy: now - 60_000, lastActivity: now)]
+        let rows = SessionListing.rows(processRows: [], db: db, nowMs: now, home: "/Users/me")
+        #expect(rows.first { $0.id == "c" }?.subtitle == "thinking · 1 min")
+        #expect(rows.first { $0.id == "p" }?.subtitle == "waiting for 1 session · 1 min")
     }
 }
