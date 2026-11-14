@@ -75,3 +75,51 @@ struct ClaudeAppTests {
         #expect(s.verdict == "Claude app is using 5.0 cores")
     }
 }
+
+@Suite("Cua")
+struct CuaTests {
+    let home = "/Users/me"
+    let cuaApp = "/Applications/Cua Spaces.app/Contents/MacOS/CuaSpacesMac"
+    let limactl = "/Users/me/.cua/runtimes/linux/colima-0.10.3-lima-2.2.0/lima/bin/limactl"
+    var tree: [ProcInfo] {
+        var ssh = R(14, 1, "ssh", path: "/usr/bin/ssh")
+        ssh.argv = ["ssh: /Users/me/.cua/runtimes/linux/vm/_lima/colima-cua/ssh.sock [mux]"]
+        return [
+            R(1, 0, "launchd", path: "/sbin/launchd"),
+            R(10, 1, "CuaSpacesMac", path: cuaApp, cpu: 1, mem: gb / 8),
+            R(11, 10, "cua-driver", path: "/Applications/Cua Spaces.app/Contents/Helpers/cua-driver", mem: gb / 16),
+            R(12, 1, "cua", path: "/Applications/Cua Spaces.app/Contents/MacOS/cua", mem: gb / 16),
+            R(13, 1, "limactl", path: limactl, mem: gb / 32),
+            ssh,
+            R(15, 1, "com.apple.Virtualization.VirtualMachine", path: vmPath, responsible: limactl,
+              cpu: 2, mem: 12 * gb, resident: 400 << 20),
+            // Someone else's Colima: not Cua.
+            R(20, 1, "limactl", path: "/opt/homebrew/bin/limactl", mem: gb / 32),
+            R(21, 1, "com.apple.Virtualization.VirtualMachine", path: vmPath, responsible: "/opt/homebrew/bin/limactl",
+              mem: 8 * gb, resident: 300 << 20),
+            R(100, 1, "Claude", path: claudeMain, mem: gb / 2),
+        ]
+    }
+
+    @Test func cuaRowHoldsAppDaemonRuntimeAndVM() {
+        var e = Classifier.Environment(sessionForShell: { _, _ in nil }, sessionForFolder: { _ in nil },
+                                       cwd: { _ in "" }, wasSeenBefore: { _ in true }, uid: 501)
+        e.home = home
+        let c = Classifier.classify(tree, env: e)
+        #expect(Set(c.cua.map(\.pid)) == [10, 11, 12, 13, 14, 15])
+        #expect(c.apps["Cua Spaces"] == nil)
+        #expect(c.unassigned.contains { $0.pid == 20 } && c.unassigned.contains { $0.pid == 21 })
+        let t = SystemTotals(load1: 1, cores: 8, pressureLevel: 1, memUsedBytes: 1, memTotalBytes: 16 * gb, machineCPUPercent: 100)
+        var c2 = c
+        c2.claude = [R(30, 1, "claude", path: "/c", mem: gb / 8)]; c2.claudeCount = 1
+        c2.server = [R(31, 1, "opencode", path: "/o", mem: gb / 8)]
+        c2.openChamber = [R(32, 1, "OpenChamber", path: "/Applications/OpenChamber.app/Contents/MacOS/OpenChamber", mem: gb / 8)]
+        let s = SnapshotBuilder.build(classification: c2, totals: t, now: Date(), home: home)
+        #expect(s.agentToolsGroup.members == "OpenChamber, opencode, Claude Code ×1, Claude app, Cua")
+        let row = s.agentTools.first { $0.name == "Cua" }!
+        #expect(s.agentTools.last?.name == "Cua")
+        // VM with its resident 0.4 GB, not its 12 GB footprint.
+        #expect(row.memBytes == gb / 8 + gb / 16 + gb / 16 + gb / 32 + (400 << 20))
+        #expect(!s.otherApps.contains { $0.name == "Cua Spaces" })
+    }
+}

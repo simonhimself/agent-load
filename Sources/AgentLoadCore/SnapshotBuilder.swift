@@ -178,13 +178,16 @@ public enum SnapshotBuilder {
         addTool("opencode server", c.server)
         addTool("opencode service", c.service)
         addTool("Claude Code ×\(c.claudeCount)", c.claude)
-        // Claude desktop app. Its VM's footprint counts guest memory that is mostly not resident
-        // (12 GB footprint, 0.4 GB resident), so this row, and only this agent tools row, uses the
-        // same outlier guard as Everything else.
-        if !c.claudeApp.isEmpty {
-            tools.append(SimpleRow(name: "Claude app", cpuPercent: c.claudeApp.reduce(0) { $0 + $1.cpuPercent },
-                                   memBytes: c.claudeApp.reduce(UInt64(0)) { $0 + ramContribution($1) }, processes: c.claudeApp))
+        // Claude desktop app and Cua run virtual machines. A VM's footprint counts guest memory that
+        // is mostly not resident (12 GB footprint, 0.4 GB resident), so these two rows, and only
+        // these agent tools rows, use the same outlier guard as Everything else.
+        func addVMTool(_ name: String, _ procs: [ProcInfo]) {
+            guard !procs.isEmpty else { return }
+            tools.append(SimpleRow(name: name, cpuPercent: procs.reduce(0) { $0 + $1.cpuPercent },
+                                   memBytes: procs.reduce(UInt64(0)) { $0 + ramContribution($1) }, processes: procs))
         }
+        addVMTool("Claude app", c.claudeApp)
+        addVMTool("Cua", c.cua)
 
         // Other apps: rank by share of the machine (CPU share + memory share) so both a
         // 3 GB browser and a 60%-CPU indexer can show up.

@@ -46,13 +46,17 @@ flowchart LR
    assigned to the session that mentions that folder most in its recent messages.
 4. Classification order matters because everything descends from OpenChamber: terminal
    harness sessions first (below), then session shells, then `claude` processes, then the opencode server and service, then the OpenChamber
-   app itself, then the Claude desktop app ("Claude app"), then other apps grouped by their `.app`
+   app itself, then the Claude desktop app ("Claude app"), then Cua, then other apps grouped by their `.app`
    bundle, then everything else.
 5. The Claude desktop app counts as an agent tool: every process inside Claude.app, and every
    helper outside the bundle whose responsible process (as Activity Monitor groups helpers) is
    Claude.app. That includes the `com.apple.Virtualization.VirtualMachine` process of the VM it
    runs its local agent work in. Other apps' VMs use the same executable but have a different
    responsible process (e.g. `limactl` for Lima/Colima), so they stay where they were.
+6. Cua is an agent tool too: processes inside Cua Spaces.app, executables under `~/.cua/` (its
+   Lima/Colima runtime, e.g. `limactl hostagent`), commands whose first word points there (the
+   `ssh: ~/.cua/…/ssh.sock [mux]` to its VM), and helpers whose responsible process is one of
+   those (its Virtualization.framework VM). Lima/Colima installed elsewhere is not Cua.
 
 ## Harnesses and terminal sessions
 
@@ -100,7 +104,7 @@ or red, the line under the headline names the biggest user of the resource that 
 - "Everything else" is the sum of its own processes. A process whose footprint is more than
   1 GB above its resident size (mostly swapped out, for example a virtual machine) counts
   with its resident size.
-- The "Claude app" agent tools row uses the same guard (only this row): its VM's footprint counts
+- The "Claude app" and "Cua" agent tools rows use the same guard (only these rows): a VM's footprint counts
   guest memory that is mostly not resident (e.g. 12 GB footprint, 0.4 GB resident).
 - Processes owned by other users show resident memory, because macOS does not let a normal
   app read their footprint.

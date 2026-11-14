@@ -97,7 +97,7 @@ draw window material and use the flat #f5f5f7 / #2c2c2e instead.
    chevron). Hovering either opens the same side panel as a session, headed
    AGENT TOOLS / OTHER APPS and listing ALL its items with CPU and memory (no hiding of
    small items). Clicking them does nothing.
-   - **Agent tools**: grey line = member names, e.g. `OpenChamber, opencode, Claude Code ×1, Claude app`;
+   - **Agent tools**: grey line = member names, e.g. `OpenChamber, opencode, Claude Code ×1, Claude app, Cua`;
      numbers = sum of its items. Items: OpenChamber app (main app + all its helper
      processes), opencode server (the `opencode serve` started by OpenChamber),
      opencode service (`opencode serve --service` and its helpers such as opencode-pty),
@@ -105,9 +105,13 @@ draw window material and use the flat #f5f5f7 / #2c2c2e instead.
      is a session row, see "Harnesses"), Claude app (owner, 2026-11-14: the Claude desktop app,
      main + helpers by bundle path or responsible app, and the Virtualization.framework VM it runs
      its local agent work in, recognised by its responsible process being Claude.app; other apps'
-     VMs such as Docker, Lima/Colima, UTM or Parallels stay where they were). Only the Claude app
-     row uses the "Everything else" outlier guard for memory (resident size when the footprint is
-     more than 1 GB above it), so the VM's guest memory does not inflate it. Claude desktop
+     VMs such as Docker, Lima/Colima, UTM or Parallels stay where they were), Cua (owner,
+     2026-11-14: Cua Spaces.app with its daemon and helpers, its Lima/Colima runtime under
+     `~/.cua/` such as `limactl hostagent` and the `ssh … [mux]` to its VM, and the VM whose
+     responsible process is that runtime; Lima/Colima installed elsewhere stays where it was).
+     Only the Claude app and Cua rows use the "Everything else" outlier guard for memory
+     (resident size when the footprint is more than 1 GB above it), so their VMs' guest memory
+     does not inflate them. Claude desktop
      threads are not session rows: their work runs on Anthropic's servers or inside the one
      shared VM, which cannot be split per thread.
    - **Other apps**: grey line = the named top apps in order, then "everything else",

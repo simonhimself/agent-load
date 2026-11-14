@@ -15,7 +15,8 @@ import Foundation
 ///   4. OpenChamber app (anything under /OpenChamber.app/ plus leftover descendants), then the
 ///      Claude desktop app: every process in Claude.app or whose responsible app is Claude.app,
 ///      which includes the Virtualization.framework VM Claude starts for its local agent work
-///      (VMs of other apps, e.g. Docker or Lima, have their own responsible process)
+///      (VMs of other apps, e.g. Docker or Lima, have their own responsible process), then Cua
+///      (Cua Spaces.app, its runtime under ~/.cua and the VM that runtime starts)
 ///   5. orphans (re-parented to launchd) whose cwd is in a `*-wt/<name>` worktree folder
 ///      → the session that mentions that folder most in the DB
 ///   6. other apps grouped by .app bundle name (mds / mdworker → "Spotlight indexing")
@@ -34,6 +35,8 @@ public enum Classifier {
         public var wasSeenBefore: (ProcKey) -> Bool
         /// Our own uid; orphans of other users are never session work.
         public var uid: UInt32
+        /// Home folder (Cua's runtime lives in ~/.cua).
+        public var home: String = NSHomeDirectory()
 
         public init(sessionForShell: @escaping (ProcInfo, String) -> SessionInfo?,
                     sessionForFolder: @escaping (String) -> SessionInfo?,
@@ -86,6 +89,8 @@ public enum Classifier {
         public var openChamber: [ProcInfo] = []
         /// Claude desktop app: main, helpers and its VM ("Claude app" in Agent tools).
         public var claudeApp: [ProcInfo] = []
+        /// Cua: Cua Spaces.app, its daemon, its Lima/Colima runtime in ~/.cua and its VM ("Cua").
+        public var cua: [ProcInfo] = []
         /// App display name → processes.
         public var apps: [String: [ProcInfo]] = [:]
         public var unassigned: [ProcInfo] = []
@@ -142,6 +147,19 @@ public enum Classifier {
     /// responsible process is Claude.app.
     public static func isClaudeApp(_ p: ProcInfo) -> Bool {
         bundleName(p.path) == "Claude" || (bundleName(p.path) == nil && bundleName(p.responsiblePath) == "Claude")
+    }
+
+    /// A process of Cua (owner, 2026-11-14): inside Cua Spaces.app; or its runtime, i.e. an
+    /// executable under ~/.cua/ (Lima/Colima `limactl`) or a command whose first word points
+    /// there (the `ssh: ~/.cua/…/ssh.sock [mux]` connection to its VM); or a helper outside any
+    /// bundle whose responsible process is one of those (the Virtualization.framework VM, whose
+    /// responsible process is Cua's `limactl`). Lima/Colima installs elsewhere are not Cua.
+    public static func isCua(_ p: ProcInfo, home: String) -> Bool {
+        let root = home + "/.cua/"
+        func cuaPath(_ path: String) -> Bool { bundleName(path) == "Cua Spaces" || path.hasPrefix(root) }
+        if cuaPath(p.path) { return true }
+        if bundleName(p.path) == nil, let a0 = p.argv.first, a0.contains(root) { return true }
+        return bundleName(p.path) == nil && cuaPath(p.responsiblePath)
     }
 
     static func bundleName(_ path: String) -> String? {
@@ -253,6 +271,12 @@ public enum Classifier {
         for p in procs where !assigned.contains(p.pid) && isClaudeApp(p) {
             assigned.insert(p.pid)
             result.claudeApp.append(p)
+        }
+
+        // 4c. Cua (an agent tool: computer-use sandboxes in its own VM).
+        for p in procs where !assigned.contains(p.pid) && isCua(p, home: env.home) {
+            assigned.insert(p.pid)
+            result.cua.append(p)
         }
 
         // 5. Orphans in a worktree folder.

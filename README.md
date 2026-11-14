@@ -37,7 +37,7 @@ update the installed app. To start it at login, choose **… → Open at Login**
 
 1. Glance at the dot: the number is how many agent sessions have unfinished work.
 2. Click it for the breakdown: status, CPU and memory gauges, one row per session, then
-   **Agent tools** (OpenChamber, opencode, Claude Code, the Claude app) and **Other apps**.
+   **Agent tools** (OpenChamber, opencode, Claude Code, the Claude app, Cua) and **Other apps**.
 3. Hover any row for its details. The **…** button top-right has **Open at Login** and **Quit**.
 
 CPU is shown per core: 100% is one full core, so 8 cores give 800%. The CPU gauge shows
@@ -81,7 +81,8 @@ Command Line Tools are installed.
 - A Claude Code started by opencode whose parent has gone looks like one started on its own.
 - Claude desktop app threads are not session rows: their work runs on Anthropic's servers or
   inside the app's one shared virtual machine, which can't be split per thread. The app and its
-  VM appear together as "Claude app" under Agent tools.
+  VM appear together as "Claude app" under Agent tools; Cua (Cua Spaces, its runtime in `~/.cua`
+  and its VM) appears as "Cua".
 - Commands shorter than two refreshes never get their own row; their CPU lands in
   "Everything else".
 - Programs that lost their parent are matched to a session only inside `*-wt/<name>`
