@@ -155,7 +155,7 @@ public struct SimpleRow: Sendable, Identifiable {
     public var processes: [ProcInfo]
 }
 
-/// One of the two folded rows under "Everything that is not a session" ("Agent tools",
+/// One of the two folded rows under "Apps & tools" ("Agent tools",
 /// "Other apps"): a title, a grey line naming its members, summed numbers, and the items its
 /// hover panel lists (all of them; nothing is hidden there).
 public struct FoldedGroup: Sendable, Identifiable {

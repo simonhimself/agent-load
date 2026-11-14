@@ -74,7 +74,7 @@ redesign. The owner reviews the look carefully.
    - Hover: a side panel lists that session's programs grouped by kind
      (e.g. "Headless Chrome ×6", "workerd", "Playwright runner", "vite"), each with CPU and memory.
    - Click: reveal the session's folder in Finder. No other actions.
-4. **EVERYTHING THAT IS NOT A SESSION**: exactly two folded rows, styled like
+4. **APPS & TOOLS** (heading renamed 2026-11-14; was "Everything that is not a session"): exactly two folded rows, styled like
    session rows (medium-weight title, one grey line truncated with "…", CPU, memory,
    chevron). Hovering either opens the same side panel as a session, headed
    AGENT TOOLS / OTHER APPS and listing ALL its items with CPU and memory (no hiding of
@@ -92,7 +92,7 @@ redesign. The owner reviews the look carefully.
      memory of the unlisted processes themselves (footprint; resident size when a
      process's footprint is more than 1 GB above its resident size, i.e. mostly swapped
      out, such as a virtual machine).
-5. Footer: "Updated N s ago" left, "Quit" right.
+5. Footer: "Quit" on the right (the "Updated N s ago" timer was removed, owner 2026-11-14).
 
 ## Attribution (how a program is assigned to a session)
 

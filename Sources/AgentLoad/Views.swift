@@ -158,9 +158,9 @@ struct DropdownView: View {
                 .onTapGesture { model.onOpenFolder?(r) }
         }
 
-        // 4. Everything that is not a session: two folded rows (layout "A · Folded groups").
+        // 4. Apps & tools (renamed from "Everything that is not a session", owner 2026-11-14): two folded rows (layout "A · Folded groups").
         //    Hover shows their items in the side panel; clicking does nothing.
-        SectionHeader(title: "Everything that is not a session", p: p)
+        SectionHeader(title: "Apps & tools", p: p)
         ForEach([s.agentToolsGroup, s.otherAppsGroup]) { g in
             FoldedRowView(group: g, hovered: model.hoveredRowID == g.id, p: p)
                 .hoverable(id: g.id, model: model)
@@ -169,12 +169,8 @@ struct DropdownView: View {
         // 6. Footer
         VStack(spacing: 0) {
             p.divider.frame(height: 1)
+            // "Updated N s ago" removed (owner, 2026-11-14): only Quit, on the right.
             HStack {
-                if let renderNow {
-                    Text(updatedText(s.date, now: renderNow))
-                } else {
-                    TimelineView(.periodic(from: .now, by: 1)) { ctx in Text(updatedText(s.date, now: ctx.date)) }
-                }
                 Spacer()
                 Text("Quit").contentShape(Rectangle()).onTapGesture { model.onQuit?() }
             }
@@ -185,9 +181,6 @@ struct DropdownView: View {
         .padding(.top, 6)
     }
 
-    private func updatedText(_ d: Date, now: Date) -> String {
-        "Updated \(max(0, Int(now.timeIntervalSince(d).rounded()))) s ago"
-    }
 }
 
 struct SectionHeader: View {
