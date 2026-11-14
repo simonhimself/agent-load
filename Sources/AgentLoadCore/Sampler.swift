@@ -7,6 +7,7 @@ public final class Sampler {
     private let stats = SystemStats()
     private let db: SessionDB
     private let home = NSHomeDirectory()
+    private let transcripts = TranscriptStore()
 
     /// Keys present in the previous sample (two-sample rule for session shells and orphans).
     private var previousKeys = Set<ProcKey>()
@@ -72,7 +73,9 @@ public final class Sampler {
         var notes: [String] = []
         if let e = db.lastError { notes.append("opencode DB: \(e)") }
         notes.append(String(format: "listing query %.1f ms, %d sessions read", lastListingQueryMs, dbSessions.count))
+        // Terminal harness sessions: their transcripts (title, last user message, last write).
+        let infos = transcripts.infos(for: result.harnessGroups)
         return SnapshotBuilder.build(classification: result, totals: totals, now: now, home: home,
-                                     notes: notes, dbSessions: dbSessions)
+                                     notes: notes, dbSessions: dbSessions, transcripts: infos)
     }
 }

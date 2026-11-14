@@ -69,8 +69,11 @@ public struct SessionInfo: Sendable, Equatable {
     public var title: String
     public var directory: String
     public var parentID: String?
-    public init(id: String, title: String, directory: String, parentID: String? = nil) {
+    /// The session or one of its ancestors carries OpenChamber's metadata key.
+    public var openChamber: Bool
+    public init(id: String, title: String, directory: String, parentID: String? = nil, openChamber: Bool = false) {
         self.id = id; self.title = title; self.directory = directory; self.parentID = parentID
+        self.openChamber = openChamber
     }
 }
 
@@ -115,6 +118,8 @@ public struct SessionRow: Sendable, Identifiable {
     public var waitingFor: [String] = []
     /// Parent session id from the DB (for the "waiting" rule).
     public var parentID: String? = nil
+    /// The agent tool running this session (icon left of the title, hover panel heading).
+    public var harness: Harness = .openCode
 
     /// `wiki-w14 · browser tests · 6 min`
     public var subtitle: String {
@@ -137,10 +142,13 @@ public struct DBSession: Sendable, Equatable {
     public var timeIdle: Int64?
     /// Latest sign of life in ms: max(session time_updated, newest message).
     public var lastActivity: Int64
+    /// This session row itself carries OpenChamber's metadata key (ancestors: see SessionListing).
+    public var openChamberOwn: Bool
     public init(id: String, title: String, directory: String, parentID: String? = nil,
-                timeBusy: Int64? = nil, timeIdle: Int64? = nil, lastActivity: Int64 = 0) {
+                timeBusy: Int64? = nil, timeIdle: Int64? = nil, lastActivity: Int64 = 0, openChamberOwn: Bool = false) {
         self.id = id; self.title = title; self.directory = directory; self.parentID = parentID
         self.timeBusy = timeBusy; self.timeIdle = timeIdle; self.lastActivity = lastActivity
+        self.openChamberOwn = openChamberOwn
     }
     /// OpenChamber's busy flag: busy more recently than idle.
     public var flaggedBusy: Bool { (timeBusy ?? 0) > (timeIdle ?? 0) }

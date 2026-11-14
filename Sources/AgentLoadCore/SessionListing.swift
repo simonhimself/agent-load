@@ -21,10 +21,27 @@ public enum SessionListing {
         return nowMs - max(busy, s.lastActivity) <= staleAfterMs
     }
 
+    /// Sessions run by OpenChamber: those carrying OpenChamber's metadata key themselves or
+    /// through any ancestor (older sub-sessions lack the key, their root session has it).
+    /// The listing query includes every ancestor, so the walk sees the whole chain.
+    public static func openChamberIDs(_ db: [DBSession]) -> Set<String> {
+        let byID = Dictionary(db.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var memo: [String: Bool] = [:]
+        func isOC(_ id: String, depth: Int) -> Bool {
+            if let m = memo[id] { return m }
+            guard let s = byID[id], depth < 64 else { return false }
+            let r = s.openChamberOwn || (s.parentID.map { isOC($0, depth: depth + 1) } ?? false)
+            memo[id] = r
+            return r
+        }
+        return Set(db.map(\.id).filter { isOC($0, depth: 0) })
+    }
+
     /// Builds the final, sorted session rows from the process-based rows and the DB sessions.
     public static func rows(processRows: [SessionRow], db: [DBSession], nowMs: Int64, home: String,
                             byMemory: Bool = false) -> [SessionRow] {
         let byID = Dictionary(db.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let ocIDs = openChamberIDs(db)
         var rows = processRows
         var rowIDs = Set(processRows.map(\.id))
 
@@ -43,7 +60,9 @@ public enum SessionListing {
             activeSince[s.id] = min(activeSince[s.id] ?? since, since)
             activeTitle[s.id] = s.title
             if !rowIDs.contains(s.id) {
-                rows.append(dbRow(s, state: .thinking, activity: "thinking", sinceMs: since, nowMs: nowMs, home: home))
+                var row = dbRow(s, state: .thinking, activity: "thinking", sinceMs: since, nowMs: nowMs, home: home)
+                row.harness = ocIDs.contains(s.id) ? .openChamber : .openCode
+                rows.append(row)
                 rowIDs.insert(s.id)
             }
         }
@@ -66,6 +85,7 @@ public enum SessionListing {
             var row = dbRow(s, state: .waiting, activity: n == 1 ? "waiting for 1 session" : "waiting for \(n) sessions",
                             sinceMs: ordered.compactMap { activeSince[$0] }.min() ?? nowMs, nowMs: nowMs, home: home)
             row.waitingFor = ordered.compactMap { activeTitle[$0] }
+            row.harness = ocIDs.contains(anc) ? .openChamber : .openCode
             rows.append(row)
             rowIDs.insert(anc)
         }

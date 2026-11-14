@@ -4,6 +4,8 @@ import Foundation
 /// the `Environment` closures, so tests can feed a fixture process tree.
 ///
 /// ORDER MATTERS, because on this machine almost everything descends from OpenChamber:
+///   0. terminal harness sessions: a Claude Code, Codex or Pi CLI with no opencode process
+///      among its ancestors, and ALL its descendants (its shells, tests, browsers, MCP servers)
 ///   1. session shell subtrees (a `<shell> -c <command>` whose parent is an agent host:
 ///      `opencode serve`, the `opencode-pty daemon`, or a `claude` CLI process; the shell
 ///      and ALL its descendants are that session's work)
@@ -48,10 +50,31 @@ public enum Classifier {
         public var procs: [ProcInfo]
         /// Folder the session's programs run in (worktree if any).
         public var folderPath: String
+        /// Process-tree signal for the harness: a shell of this session runs under the
+        /// `opencode serve` that OpenChamber.app started.
+        public var underOpenChamber = false
+    }
+
+    /// A terminal harness session (Claude Code, Codex or Pi started on its own).
+    public struct HarnessGroup {
+        public var harness: Harness
+        /// The outermost harness process (e.g. Codex's node wrapper, not its native child).
+        public var root: ProcInfo
+        /// Root and all its descendants.
+        public var procs: [ProcInfo]
+        /// The programs it runs: command shells (`zsh -c …`) and their descendants.
+        public var commands: [ProcInfo]
+        /// Working directory of the root process ("" if unknown).
+        public var cwd: String
+        public init(harness: Harness, root: ProcInfo, procs: [ProcInfo], commands: [ProcInfo], cwd: String) {
+            self.harness = harness; self.root = root; self.procs = procs; self.commands = commands; self.cwd = cwd
+        }
     }
 
     public struct Result {
         public var sessions: [SessionGroup] = []
+        /// Terminal harness sessions (shown only while working; see SnapshotBuilder).
+        public var harnessGroups: [HarnessGroup] = []
         public var claude: [ProcInfo] = []
         /// Number of `claude` CLI processes (the "×N"; descendants are not counted).
         public var claudeCount = 0
@@ -141,7 +164,7 @@ public enum Classifier {
 
         var groups: [String: SessionGroup] = [:]
         var groupOrder: [String] = []
-        func addToSession(info: SessionInfo?, fallbackFolder: String, procs: [ProcInfo]) {
+        func addToSession(info: SessionInfo?, fallbackFolder: String, procs: [ProcInfo], underOpenChamber: Bool = false) {
             let folder = sessionFolder(procs, env: env) ?? fallbackFolder
             let id = info?.id ?? "folder:\(folder)"
             if groups[id] == nil {
@@ -150,6 +173,32 @@ public enum Classifier {
             }
             groups[id]!.procs += procs
             if groups[id]!.folderPath.isEmpty { groups[id]!.folderPath = folder }
+            if underOpenChamber { groups[id]!.underOpenChamber = true }
+        }
+        var pending: [ProcInfo] = []
+
+        // 0. Terminal harness sessions. Taken before everything else so their shells are not
+        //    looked up in opencode's DB and their programs are not filed under the terminal app.
+        //    A harness with an opencode ancestor stays where it was (step 1/2); one below another
+        //    harness is part of that harness's session.
+        func ancestors(_ p: ProcInfo) -> [ProcInfo] {
+            var out: [ProcInfo] = []
+            var cur = byPid[p.ppid]
+            var guardN = 0
+            while let a = cur, a.pid > 1, guardN < 64 { out.append(a); cur = byPid[a.ppid]; guardN += 1 }
+            return out
+        }
+        for p in procs.sorted(by: { $0.startMicros < $1.startMicros }) where !assigned.contains(p.pid) {
+            guard let h = HarnessDetect.terminalHarness(p) else { continue }
+            let anc = ancestors(p)
+            if anc.contains(where: HarnessDetect.isOpencodeProcess) { continue }
+            if anc.contains(where: { HarnessDetect.terminalHarness($0) != nil }) { continue }
+            let sub = takeSubtree(p.pid)
+            // Two-sample rule, as for session shells: a harness seen once (e.g. `claude --version`)
+            // makes no row.
+            guard env.wasSeenBefore(p.key) else { pending += sub; continue }
+            result.harnessGroups.append(HarnessGroup(harness: h, root: p, procs: sub,
+                                                     commands: commandProcs(sub, root: p.pid), cwd: env.cwd(p)))
         }
 
         // 1. Session shell subtrees. Shells seen for the first time are taken out too (so
@@ -158,12 +207,16 @@ public enum Classifier {
             guard let parent = byPid[p.ppid], isAgentHost(parent) else { return false }
             return shellCommand(p) != nil
         }.sorted { $0.startMicros < $1.startMicros }
-        var pending: [ProcInfo] = []
         for sh in shells where !assigned.contains(sh.pid) {
             let sub = takeSubtree(sh.pid)
             guard env.wasSeenBefore(sh.key) else { pending += sub; continue }
             let info = env.sessionForShell(sh, shellCommand(sh) ?? "")
-            addToSession(info: info, fallbackFolder: env.cwd(sh), procs: sub)
+            // Process-tree signal for OpenChamber vs OpenCode: the shell's host is the
+            // `opencode serve` whose parent is OpenChamber.app.
+            let host = byPid[sh.ppid]
+            let underOC = host.map { isOpencodeServe($0) && !isOpencodeService($0)
+                && (byPid[$0.ppid]?.path.contains("/OpenChamber.app/") ?? false) } ?? false
+            addToSession(info: info, fallbackFolder: env.cwd(sh), procs: sub, underOpenChamber: underOC)
         }
 
         // 2. claude CLI processes and their non-session descendants.
@@ -205,6 +258,20 @@ public enum Classifier {
         result.unassigned = procs.filter { !assigned.contains($0.pid) } + pending
         result.sessions = groupOrder.compactMap { groups[$0] }
         return result
+    }
+
+    /// The programs a harness runs: its command shells and their descendants (not the harness
+    /// itself and not its long-running helpers such as MCP servers).
+    static func commandProcs(_ sub: [ProcInfo], root: Int32) -> [ProcInfo] {
+        let byPid = Dictionary(sub.map { ($0.pid, $0) }, uniquingKeysWith: { a, _ in a })
+        return sub.filter { p in
+            var cur: ProcInfo? = p
+            while let c = cur, c.pid != root {
+                if HarnessDetect.isCommandShell(c) { return true }
+                cur = byPid[c.ppid]
+            }
+            return false
+        }
     }
 
     /// Folder a session works in: the most common worktree among its processes' cwds,

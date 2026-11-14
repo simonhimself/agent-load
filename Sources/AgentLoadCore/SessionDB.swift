@@ -13,6 +13,12 @@ public final class SessionDB {
     private var db: OpaquePointer?
     /// Last error text, for --dump.
     public private(set) var lastError: String?
+    /// `session_v2.metadata` exists (probed separately: without it everything else still works,
+    /// only the OpenChamber/OpenCode distinction falls back to the process tree).
+    private var hasMetadata = false
+    /// SQL for "this session row carries OpenChamber's metadata key" (0 without the column).
+    private var ocFlagSQL: String { hasMetadata ? "(instr(coalesce(%@.metadata, ''), '\"openchamber\"') > 0)" : "0" }
+    private func ocFlag(_ alias: String) -> String { ocFlagSQL.replacingOccurrences(of: "%@", with: alias) }
 
     public init(path: String = NSHomeDirectory() + "/.local/share/opencode/opencode.db") {
         self.path = path
@@ -37,6 +43,7 @@ public final class SessionDB {
             sqlite3_close_v2(h)
             return nil
         }
+        hasMetadata = columnsExist(h, table: "session_v2", ["metadata"])
         db = h
         return h
     }
@@ -112,12 +119,24 @@ public final class SessionDB {
     }
 
     public func session(id: String) -> SessionInfo? {
+        guard open() != nil else { return nil }
+        // The last column: does this session or any ancestor carry OpenChamber's metadata key?
+        let sql = """
+            WITH RECURSIVE chain(id, parent_id, oc, depth) AS (
+                SELECT id, parent_id, \(ocFlag("s")), 0 FROM session_v2 s WHERE id = ?1
+                UNION ALL
+                SELECT p.id, p.parent_id, \(ocFlag("p")), c.depth + 1 FROM session_v2 p JOIN chain c ON p.id = c.parent_id
+                WHERE c.depth < 32)
+            SELECT s.id, s.title, s.directory, s.parent_id, (SELECT max(oc) FROM chain)
+            FROM session_v2 s WHERE s.id = ?1
+            """
         var info: SessionInfo?
-        _ = query("SELECT id, title, directory, parent_id FROM session_v2 WHERE id = ?1",
+        _ = query(sql,
                   bind: { sqlite3_bind_text($0, 1, id, -1, Self.transient) },
                   row: { s in
                       info = SessionInfo(id: Self.text(s, 0) ?? id, title: Self.text(s, 1) ?? "",
-                                         directory: Self.text(s, 2) ?? "", parentID: Self.text(s, 3))
+                                         directory: Self.text(s, 2) ?? "", parentID: Self.text(s, 3),
+                                         openChamber: sqlite3_column_int64(s, 4) != 0)
                   })
         return info
     }
@@ -128,6 +147,7 @@ public final class SessionDB {
     /// session_message_session_time_created_id_idx), for the stale-flag check.
     /// One short read-only statement; nil if the DB cannot be read.
     public func listingSessions(nowMs: Int64) -> [DBSession]? {
+        guard open() != nil else { return nil }
         let sql = """
             WITH RECURSIVE keep(id) AS (
                 SELECT id FROM session_v2 WHERE time_archived IS NULL AND time_updated > ?1
@@ -137,14 +157,16 @@ public final class SessionDB {
                    CASE WHEN s.time_busy > coalesce(s.time_idle, 0)
                         THEN max(s.time_updated, coalesce((SELECT max(m.time_created) FROM session_message m
                                                            WHERE m.session_id = s.id), 0))
-                        ELSE s.time_updated END
+                        ELSE s.time_updated END,
+                   \(ocFlag("s"))
             FROM session_v2 s WHERE s.id IN keep AND s.time_archived IS NULL
             """
         var out: [DBSession] = []
         let ok = query(sql, bind: { sqlite3_bind_int64($0, 1, nowMs - 7 * 86_400_000) }, row: { s in
             func int(_ i: Int32) -> Int64? { sqlite3_column_type(s, i) == SQLITE_NULL ? nil : sqlite3_column_int64(s, i) }
             out.append(DBSession(id: Self.text(s, 0) ?? "", title: Self.text(s, 1) ?? "", directory: Self.text(s, 2) ?? "",
-                                 parentID: Self.text(s, 3), timeBusy: int(4), timeIdle: int(5), lastActivity: int(6) ?? 0))
+                                 parentID: Self.text(s, 3), timeBusy: int(4), timeIdle: int(5), lastActivity: int(6) ?? 0,
+                                 openChamberOwn: sqlite3_column_int64(s, 7) != 0))
         })
         return ok ? out : nil
     }
