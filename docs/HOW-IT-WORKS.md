@@ -26,8 +26,10 @@ flowchart LR
 - CPU % per row: CPU time used since the last sample, divided by the time between samples;
   100% = one full core. New processes are measured over at least 1 s and capped at all cores.
 - System status: memory pressure (`kern.memorystatus_vm_pressure_level`) first, then the
-  1-minute load average against the core count. Swap usage never changes the colour by
-  itself, because it lingers after a crunch.
+  1-minute load average against the core count. The amount in swap never changes the colour,
+  because it lingers after a crunch. Active swapping does: the memory card shows
+  "Swapping N MB/s" from 1 MB/s, and 30 MB/s or more in two consecutive refreshes turns
+  memory amber ("memory is swapping").
 - One refresh costs roughly 12 ms of CPU; the app idles well under 1% CPU and about 20 MB of
   memory.
 

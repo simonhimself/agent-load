@@ -18,7 +18,7 @@ enum Dump {
         }
         line("STATUS  \(s.level)  \(s.headline)  |  \(s.verdict)")
         line("CPU     \(Format.cores(load: s.load1, cores: s.cores))  (machine CPU busy \(Format.cpu(s.machineCPUPercent)) of \(s.cores * 100)%)")
-        line("MEMORY  \(Format.memory(used: s.memUsedBytes, total: s.memTotalBytes))  pressure level \(s.pressureLevel)")
+        line("MEMORY  \(Format.memory(used: s.memUsedBytes, total: s.memTotalBytes))  pressure level \(s.pressureLevel)  swap \(String(format: "%.2f", s.swapBytesPerSec / 1_000_000)) MB/s")
         line("ICON    ● \(s.sessionCount)")
         line("LISTED  cpu \(Format.cpu(s.listedCPUPercent))  mem \(Format.gb(s.listedMemBytes))  (vs machine \(Format.cpu(s.machineCPUPercent)) / \(Format.gb(s.memUsedBytes)))")
         for n in s.notes { line("NOTE    \(n)") }

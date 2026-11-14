@@ -54,8 +54,9 @@ the same database.
 
 - **Light footprint:** refreshes every 10 s while closed and every 3 s while open, at well
   under 1% CPU.
-- **Memory first:** the status colour follows macOS memory pressure before CPU load,
-  because on a 16 GB machine memory usually runs out first.
+- **Memory first:** the status colour follows macOS memory pressure, and heavy active
+  swapping, before CPU load, because on a 16 GB machine memory usually runs out first. The
+  memory card shows "Swapping N MB/s" while memory is moving to and from disk.
 - **Never writes:** the app only reads processes and the database; it can't stop anything.
 
 Details, the attribution rules and diagnostic commands are in

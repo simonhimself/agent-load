@@ -27,8 +27,13 @@ public enum StatusRules {
         return .green
     }
 
-    public static func evaluate(pressure: Int, load: Double, cores: Int) -> Result {
-        let m = memLevel(pressure: pressure)
+    /// `heavySwap`: memory has been swapping heavily for several seconds. That makes memory
+    /// amber even while macOS still reports normal pressure (owner, 2026-11-14): heavy
+    /// swapping is exactly when everything feels slow. Swap *size* is still never an input.
+    public static func evaluate(pressure: Int, load: Double, cores: Int, heavySwap: Bool = false) -> Result {
+        let pressureLevel = memLevel(pressure: pressure)
+        let m = max(pressureLevel, heavySwap ? .amber : .green)
+        let swapOnly = heavySwap && pressureLevel == .green
         let c = cpuLevel(load: load, cores: cores)
         let level = max(m, c)
         // The headline names the reason. Single-resource wording comes from the spec/mockup
@@ -37,7 +42,7 @@ public enum StatusRules {
         let reason: String
         switch (m, c) {
         case (.green, _): reason = c == .red ? "CPU is overloaded" : "CPU is busy"
-        case (_, .green): reason = m == .red ? "memory is critical" : "memory is tight"
+        case (_, .green): reason = m == .red ? "memory is critical" : swapOnly ? "memory is swapping" : "memory is tight"
         default: reason = "memory and CPU"
         }
         let reasons = [reason]

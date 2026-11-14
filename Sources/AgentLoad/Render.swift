@@ -8,8 +8,8 @@ import AgentLoadCore
 enum Render {
     @MainActor
     /// `hover`: id of the row to hover: "session" (first session), "folded:tools", "folded:other", or nil.
-    static func renderPNG(to path: String, hover: String?, dark: Bool, mockupData: Bool = false) -> Bool {
-        let snap: Snapshot
+    static func renderPNG(to path: String, hover: String?, dark: Bool, mockupData: Bool = false, swapMBps: Double? = nil) -> Bool {
+        var snap: Snapshot
         if mockupData {
             snap = MockupData.snapshot()
         } else {
@@ -18,6 +18,8 @@ enum Render {
             Thread.sleep(forTimeInterval: 3)
             snap = sampler.sample(includeOtherUsers: true)
         }
+        // --swap <MB/s>: preview the swapping line in the memory card.
+        if let swapMBps { snap.swapBytesPerSec = swapMBps * 1_000_000 }
 
         let model = AppModel()
         model.snapshot = snap

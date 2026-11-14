@@ -461,3 +461,38 @@ struct CulpritTests {
         #expect(s.sessions.first?.title == "W14 Images")
     }
 }
+
+@Suite("Swapping")
+struct SwapTests {
+    @Test func lineOnlyFromOneMBps() {
+        #expect(Format.swapping(400_000) == nil)
+        #expect(Format.swapping(12_300_000) == "Swapping 12 MB/s")
+        #expect(Format.swapping(1_500_000_000) == "Swapping 1.5 GB/s")
+    }
+
+    @Test func heavySwapTurnsMemoryAmberWithItsOwnReason() {
+        let r = StatusRules.evaluate(pressure: 1, load: 3, cores: 8, heavySwap: true)
+        #expect(r.level == .amber && r.memLevel == .amber && r.headline == "Busy · memory is swapping")
+        // Real pressure keeps its own wording; critical stays red.
+        #expect(StatusRules.evaluate(pressure: 2, load: 3, cores: 8, heavySwap: true).headline == "Busy · memory is tight")
+        #expect(StatusRules.evaluate(pressure: 4, load: 3, cores: 8, heavySwap: true).level == .red)
+        #expect(StatusRules.evaluate(pressure: 1, load: 3, cores: 8).level == .green)
+    }
+
+    @Test func heavySwapNamesMemoryCulpritAndSortsByMemory() {
+        var c = Classifier.Result()
+        c.sessions = [
+            .init(info: SessionInfo(id: "a", title: "Fast", directory: "\(home)/p"), id: "a",
+                  procs: [P(10, 1108, "node", path: "/x/node", cpu: 270, mem: 1_000_000_000)], folderPath: "\(home)/p"),
+            .init(info: SessionInfo(id: "b", title: "Big", directory: "\(home)/p"), id: "b",
+                  procs: [P(11, 1108, "node", path: "/x/node", cpu: 20, mem: 3_000_000_000)], folderPath: "\(home)/p"),
+        ]
+        let t = SystemTotals(load1: 3, cores: 8, pressureLevel: 1, memUsedBytes: 1, memTotalBytes: 16 << 30,
+                             machineCPUPercent: 300, swapBytesPerSec: 85_000_000, heavySwap: true)
+        let s = SnapshotBuilder.build(classification: c, totals: t, now: Date(timeIntervalSince1970: 100), home: home)
+        #expect(s.headline == "Busy · memory is swapping")
+        #expect(s.verdict == "Big is using 2.8 GB")
+        #expect(s.sessions.map(\.title) == ["Big", "Fast"])
+        #expect(s.swapBytesPerSec == 85_000_000)
+    }
+}

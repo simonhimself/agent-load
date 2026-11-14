@@ -126,3 +126,13 @@ instead of the generic advice: the biggest user of the resource that is short, a
 sessions, agent tools and all named apps (also ones not shown in the top 3), memory first
 when both are short. E.g. "Firefox is using 6.8 GB", "W14 Images is using 2.7 cores".
 Green keeps "Room for another session".
+
+## Swapping (owner, 2026-11-14)
+
+- The memory card shows a grey line "Swapping N MB/s" (or "N.N GB/s") while memory is
+  actively moving between RAM and disk (swap-ins + swap-outs since the last refresh) at
+  1 MB/s or more. Otherwise the card looks as before. The amount sitting in swap is never shown.
+- Heavy swapping, 30 MB/s or more in two consecutive refreshes, makes memory amber even when
+  macOS still reports normal pressure. Headline: "Busy · memory is swapping"; the culprit line
+  and memory sorting then apply as for any memory problem. Real pressure keeps its own wording.
+

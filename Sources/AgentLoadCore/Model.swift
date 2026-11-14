@@ -193,6 +193,8 @@ public struct Snapshot: Sendable {
     public var notes: [String]
     /// Every app group found, including those too small to list (for --dump).
     public var allAppNames: [String] = []
+    /// Active swapping, bytes/s (shown in the memory card while ≥ Format.swapShownFrom).
+    public var swapBytesPerSec: Double = 0
 
     /// Folded "Agent tools" row: OpenChamber app + opencode server + opencode service + Claude Code.
     public var agentToolsGroup: FoldedGroup {

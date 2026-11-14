@@ -135,9 +135,12 @@ struct DropdownView: View {
         HStack(spacing: 8) {
             Gauge(title: "CPU", value: Format.cores(load: s.load1, cores: s.cores),
                   fraction: s.load1 / Double(max(s.cores, 1)), color: Palette.status(s.cpuLevel), p: p)
+            // Grey "Swapping N MB/s" line only while memory is actively moving to/from disk.
             Gauge(title: "Memory", value: Format.memory(used: s.memUsedBytes, total: s.memTotalBytes),
-                  fraction: Double(s.memUsedBytes) / Double(max(s.memTotalBytes, 1)), color: Palette.status(s.memLevel), p: p)
+                  fraction: Double(s.memUsedBytes) / Double(max(s.memTotalBytes, 1)), color: Palette.status(s.memLevel), p: p,
+                  note: Format.swapping(s.swapBytesPerSec))
         }
+        .fixedSize(horizontal: false, vertical: true)   // both cards as tall as the taller one
         .padding(.bottom, 10)
 
         // 3. Sessions
@@ -204,6 +207,7 @@ struct Gauge: View {
     let fraction: Double
     let color: Color
     let p: Palette
+    var note: String? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(title).font(sf(11)).foregroundStyle(p.grey1).lineBox(11)
@@ -216,9 +220,12 @@ struct Gauge: View {
                 }
             }
             .frame(height: 4).padding(.top, 4)
+            if let note {
+                Text(note).font(sf(11)).foregroundStyle(p.grey2).lineLimit(1).lineBox(11).padding(.top, 3)
+            }
         }
         .padding(.vertical, 7).padding(.horizontal, 9)   // mockup: padding 7px 9px
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(p.card))
     }
 }

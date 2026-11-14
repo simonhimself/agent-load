@@ -26,4 +26,13 @@ public enum Format {
     public static func memory(used: UInt64, total: UInt64) -> String {
         String(format: "%.1f of %d GB", Double(used) / gib, Int((Double(total) / gib).rounded()))
     }
+
+    /// The memory card shows a swapping line from this rate on (bytes/s).
+    public static let swapShownFrom: Double = 1_000_000
+    /// "Swapping 12 MB/s", "Swapping 1.2 GB/s"; nil when below `swapShownFrom`.
+    public static func swapping(_ bytesPerSec: Double) -> String? {
+        guard bytesPerSec >= swapShownFrom else { return nil }
+        let mb = bytesPerSec / 1_000_000
+        return mb >= 1000 ? String(format: "Swapping %.1f GB/s", mb / 1000) : "Swapping \(Int(mb.rounded())) MB/s"
+    }
 }

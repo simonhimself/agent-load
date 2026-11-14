@@ -4,6 +4,14 @@ import Darwin
 /// Machine-wide totals: load, memory pressure, memory used, machine CPU.
 public final class SystemStats {
     private var lastTicks: (busy: UInt64, total: UInt64)?
+    private var lastSwap: (pages: UInt64, at: Date)?
+    /// Consecutive samples at or above `heavySwapRate`.
+    private var heavySamples = 0
+    /// Swapping at least this fast counts as heavy (bytes/s). Calm on the owner's Mac is
+    /// well under 1 MB/s even with 11 GB sitting in swap.
+    public static let heavySwapRate: Double = 30 * 1_000_000
+    /// Heavy only after this many consecutive samples (≥ 6 s open, ≥ 20 s closed): "several seconds".
+    public static let heavySamplesNeeded = 2
     public let cores: Int
     public let memTotal: UInt64
 
@@ -15,10 +23,38 @@ public final class SystemStats {
     public func read() -> SystemTotals {
         var loads = [Double](repeating: 0, count: 3)
         getloadavg(&loads, 3)
+        let swap = swapRate()
+        heavySamples = swap >= Self.heavySwapRate ? heavySamples + 1 : 0
         return SystemTotals(load1: loads[0], cores: cores,
                             pressureLevel: Int(Self.sysctlInt32("kern.memorystatus_vm_pressure_level") ?? 1),
                             memUsedBytes: Self.memoryUsed(), memTotalBytes: memTotal,
-                            machineCPUPercent: machineCPU())
+                            machineCPUPercent: machineCPU(),
+                            swapBytesPerSec: swap, heavySwap: heavySamples >= Self.heavySamplesNeeded)
+    }
+
+    /// Swap-ins + swap-outs since the previous call, in bytes per second (0 on the first call).
+    func swapRate(now: Date = Date()) -> Double {
+        guard let (stats, pageSize) = Self.vmStats() else { return 0 }
+        let pages = UInt64(stats.swapins) + UInt64(stats.swapouts)
+        defer { lastSwap = (pages, now) }
+        guard let last = lastSwap, pages >= last.pages else { return 0 }
+        let dt = now.timeIntervalSince(last.at)
+        guard dt > 0.2 else { return 0 }
+        return Double(pages - last.pages) * Double(pageSize) / dt
+    }
+
+    static func vmStats() -> (vm_statistics64, UInt64)? {
+        var stats = vm_statistics64()
+        var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size)
+        let kr = withUnsafeMutablePointer(to: &stats) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count)
+            }
+        }
+        guard kr == KERN_SUCCESS else { return nil }
+        var pageSize: vm_size_t = 0
+        host_page_size(mach_host_self(), &pageSize)
+        return (stats, UInt64(pageSize))
     }
 
     /// Activity Monitor's "Memory Used" = app memory (internal − purgeable) + wired + compressed.

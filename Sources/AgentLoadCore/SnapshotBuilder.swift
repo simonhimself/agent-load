@@ -9,9 +9,15 @@ public struct SystemTotals: Sendable {
     public var memTotalBytes: UInt64
     /// Machine CPU busy over the last interval, percent of one core (0 … cores×100).
     public var machineCPUPercent: Double
-    public init(load1: Double, cores: Int, pressureLevel: Int, memUsedBytes: UInt64, memTotalBytes: UInt64, machineCPUPercent: Double) {
+    /// Memory moved between RAM and disk (swap-ins + swap-outs) over the last interval, bytes/s.
+    public var swapBytesPerSec: Double
+    /// Swapping has been heavy for several seconds (see SystemStats.heavySwapRate).
+    public var heavySwap: Bool
+    public init(load1: Double, cores: Int, pressureLevel: Int, memUsedBytes: UInt64, memTotalBytes: UInt64, machineCPUPercent: Double,
+                swapBytesPerSec: Double = 0, heavySwap: Bool = false) {
         self.load1 = load1; self.cores = cores; self.pressureLevel = pressureLevel
         self.memUsedBytes = memUsedBytes; self.memTotalBytes = memTotalBytes; self.machineCPUPercent = machineCPUPercent
+        self.swapBytesPerSec = swapBytesPerSec; self.heavySwap = heavySwap
     }
 }
 
@@ -81,7 +87,7 @@ public enum SnapshotBuilder {
 
     public static func build(classification c: Classifier.Result, totals t: SystemTotals, now: Date,
                              home: String, notes: [String] = [], dbSessions: [DBSession] = []) -> Snapshot {
-        let status = StatusRules.evaluate(pressure: t.pressureLevel, load: t.load1, cores: t.cores)
+        let status = StatusRules.evaluate(pressure: t.pressureLevel, load: t.load1, cores: t.cores, heavySwap: t.heavySwap)
         let nowMicros = Int64(now.timeIntervalSince1970 * 1_000_000)
 
         // Sessions. Throwaway test sessions in temp folders (e.g. /private/tmp/ar-v2-*) are
@@ -173,6 +179,7 @@ public enum SnapshotBuilder {
                         sessions: sessions, agentTools: tools, otherApps: shownApps, everythingElse: rest,
                         listedMemBytes: listedMem, listedCPUPercent: listedCPU, notes: notes)
         snap.allAppNames = c.apps.keys.sorted()
+        snap.swapBytesPerSec = t.swapBytesPerSec
         return snap
     }
 }
