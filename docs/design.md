@@ -29,6 +29,19 @@ redesign. The owner reviews the look carefully.
 
 ## Dropdown (top to bottom)
 
+Width: 376 pt content + 2 × 12 pt padding = 400 pt (widened from 364 by the owner, 2026-11-14;
+the extra room goes to the name column, the number columns are unchanged). The hover side
+panel keeps its 260 pt.
+
+Surface (owner, 2026-11-14): the dropdown and the hover panel look like native menus: the
+translucent system menu material (`NSVisualEffectView`, material `.menu`, behind-window
+blending, always active), circular 12 pt corners (measured from a native menu on macOS 26),
+the window shadow, and a 0.5 pt hairline ring (black 8% in light mode, white 18% in dark).
+Gauge cards are white at 75% (light) / white at 10% (dark) so they sit on the material.
+In dark mode the grey text is white at 60% / 50% and the row highlight white at 10%, which
+stay readable on the material over a bright desktop. PNG renders (`--render-png`) cannot
+draw window material and use the flat #f5f5f7 / #2c2c2e instead.
+
 1. Headline with dot, verdict line in grey.
 2. Two gauge cards side by side:
    - **CPU**: "7.3 of 8 cores" = 1-minute load average vs core count; bar = load / cores, capped.
@@ -57,10 +70,10 @@ redesign. The owner reviews the look carefully.
    Sorted by CPU (then memory); when memory is amber/red, by memory (then CPU) instead. Rows at 0%: thinking first, then waiting, then sleeping
    (process rows), each newest first.
    - Rows without programs use the same design: grey line
-     `<project> · thinking · <time since busy>` or
-     `<project> · waiting for N sessions · <time since the oldest active descendant became busy>`
-     ("waiting for 1 session" for one); the project part is omitted for chat folders
-     (~/.config/openchamber/chats). Numbers show 0% and 0.0 GB. Hover: thinking rows show
+     `thinking · <time since busy>` or
+     `waiting for N sessions · <time since the oldest active descendant became busy>`
+     ("waiting for 1 session" for one). Their folder would be the project already shown next to
+     the title, so it is left out (see Line 2). Numbers show 0% and 0.0 GB. Hover: thinking rows show
      one grey line "Thinking. No programs running on this Mac"; waiting rows list the
      active descendant session titles. Click reveals the session directory (nothing for
      chat folders).
@@ -70,7 +83,9 @@ redesign. The owner reviews the look carefully.
    - Line 2 (small grey, always one line, truncate with "…"), indented 22 pt (icon + gap)
      so it aligns with the title text:
      `<worktree or folder name> · <activity> · <running time>`,
-     e.g. `wiki-w14 · browser tests · 6 min`.
+     e.g. `wiki-w14 · browser tests · 6 min`. The folder part is left out when it equals the
+     project name next to the title (owner, 2026-11-14): `waiting for 2 sessions · 41 min`;
+     it stays when it differs (worktrees such as `wiki-w14`).
    - Right side: CPU % (100% = one core), memory in GB, and a small grey chevron "›"
      hinting at the hover panel (row grid `minmax(0,1fr) 42px 52px 8px`).
    - Hover: a side panel headed `<TITLE> · <HARNESS>` (e.g. "FIX LOGIN REDIRECT · CLAUDE CODE")
