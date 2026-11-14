@@ -140,8 +140,11 @@ APP="build/Agent Load.app/Contents/MacOS/AgentLoad"
 `--hover-claude` hovers the first Claude Code row.
 `AgentLoad --debug-click` presses the menu bar item through its real action after 4 s (to check
 that it stays highlighted while the dropdown is open). `--debug-open [--debug-hover]` opens the
-dropdown (and hovers the first row); add `--debug-dark` for dark appearance. Renders draw a flat
-background; the live window uses the translucent menu material.
+dropdown (and hovers the first row); add `--debug-dark` for dark appearance.
+`--debug-compare <light|dark> <png>` shows a plain backdrop, opens the dropdown, hovers the first
+row, pops up a native menu beside it and screenshots both (to match the native look);
+`--debug-old-material` uses the pre-macOS 26 menu material instead of Liquid Glass. Renders draw a flat
+background; the live window uses Liquid Glass (macOS 26+) or the menu material.
 
 ## Source layout
 

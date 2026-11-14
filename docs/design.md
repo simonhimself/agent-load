@@ -33,14 +33,20 @@ Width: 376 pt content + 2 × 12 pt padding = 400 pt (widened from 364 by the own
 the extra room goes to the name column, the number columns are unchanged). The hover side
 panel keeps its 260 pt.
 
-Surface (owner, 2026-11-14): the dropdown and the hover panel look like native menus: the
-translucent system menu material (`NSVisualEffectView`, material `.menu`, behind-window
-blending, always active), circular 12 pt corners (measured from a native menu on macOS 26),
-the window shadow, and a 0.5 pt hairline ring (black 8% in light mode, white 18% in dark).
+Surface (owner, 2026-11-14): the dropdown and the hover panel look like native menus.
+On macOS 26+ that is Liquid Glass (`NSGlassEffectView`, style regular, no tint), matched
+side by side with a native NSMenu over the same white and dark backdrops (`--debug-compare`):
+circular 12 pt corners (measured from a native menu), the glass's own rim (no extra ring: it
+looked the same with and without one), and the window shadow, with the glass inside a view
+clipped to the rounded shape so the shadow follows the corners (unclipped, it outlined the
+square window). Older macOS: the menu material (`NSVisualEffectView`, `.menu`, behind-window,
+always active) with the same corners and shadow plus a 0.5 pt hairline ring (black 8% light,
+white 18% dark).
 Gauge cards are white at 75% (light) / white at 10% (dark) so they sit on the material.
 In dark mode the grey text is white at 60% / 50% and the row highlight white at 10%, which
-stay readable on the material over a bright desktop. PNG renders (`--render-png`) cannot
-draw window material and use the flat #f5f5f7 / #2c2c2e instead.
+stay readable on the material over a bright desktop. These held up on the glass too, so they
+are unchanged. PNG renders (`--render-png`) cannot draw glass or window material and use the
+flat #f5f5f7 / #2c2c2e with the hairline ring instead.
 
 1. Headline with dot, verdict line in grey.
 2. Two gauge cards side by side:
