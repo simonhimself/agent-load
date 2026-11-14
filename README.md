@@ -2,7 +2,7 @@
 
 **See which AI agent session is slowing down your Mac, from the menu bar.**
 
-![The Agent Load dropdown: an amber "Busy · memory is tight" status naming Firefox as the biggest memory user, CPU and memory gauges, three agent sessions with their CPU and memory, and a hover panel listing one session's programs](docs/assets/dropdown-preview.png)
+![The Agent Load dropdown: an amber "Busy · memory is tight" status naming Firefox as the biggest memory user, CPU and memory gauges, six agent sessions each marked with the icon of the tool running it (OpenChamber, Claude Code, Pi, OpenCode, Codex) with their CPU and memory, and a hover panel listing one session's programs](docs/assets/dropdown-preview.png)
 
 *Rendered from the app with illustrative sample numbers.*
 
@@ -12,8 +12,9 @@
 
 - **See the strain at a glance.** A coloured dot and a session count sit next to Wi-Fi and
   battery: green is calm, amber means wait, red means free something up.
-- **Find the culprit.** Every unfinished OpenCode / OpenChamber session gets a row with its
-  CPU and memory. When the Mac is strained, the line under the headline names the biggest
+- **Find the culprit.** Every unfinished OpenChamber / OpenCode session gets a row with its
+  CPU and memory, and so do Claude Code, Codex and Pi sessions started in a terminal while they
+  work. Each row shows the icon of the tool running it. When the Mac is strained, the line under the headline names the biggest
   user, even when it's another app such as a browser.
 - **Look inside a session.** Hover a row to see its programs: headless Chrome, test
   runners, dev servers. Click it to open the session's folder in Finder.
@@ -73,8 +74,11 @@ Command Line Tools are installed.
 
 ## Limitations
 
-- Recognises sessions run through OpenCode / OpenChamber only. Claude Code or Codex
-  started on their own count under "Claude Code" or "Everything else".
+- Claude Code, Codex and Pi sessions started on their own are listed only while they work
+  (≥ 1% CPU or a transcript written in the last 2 minutes). Their title comes from their
+  transcript files, whose format can change. Pi support is built from its documentation and
+  has not been tried with a real Pi. Codex desktop-app sessions are not listed.
+- A Claude Code started by opencode whose parent has gone looks like one started on its own.
 - Commands shorter than two refreshes never get their own row; their CPU lands in
   "Everything else".
 - Programs that lost their parent are matched to a session only inside `*-wt/<name>`
@@ -84,6 +88,13 @@ Command Line Tools are installed.
 - Relies on opencode's internal database layout. If that changes, rows fall back to folder
   names.
 - Read-only: it doesn't stop processes, send notifications, or start at login by itself.
+
+## Icons
+
+The OpenChamber, OpenCode, Claude, Codex and Pi icons belong to their owners. The app shows
+them only to identify which tool runs a session. It loads them at runtime from the apps
+installed on your Mac (Pi's mark is drawn from its MIT-licensed logo); none are stored in
+this repository.
 
 ## Project guide
 

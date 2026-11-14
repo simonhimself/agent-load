@@ -5,7 +5,7 @@ OpenChamber/opencode **session**, so the question "which session is making the
 Mac slow, and can I start another one?" is answered at a glance.
 
 Agreed with the owner on 2026-11-13. The visual reference is `docs/mockup.html`
-(v5, layout "A · Folded groups", replacing v4 the same day). Match it closely; do not
+(v7, layout "A · Folded groups" with harness icons, "option B" chosen 2026-11-14). Match it closely; do not
 redesign. The owner reviews the look carefully.
 
 ## Menu bar item
@@ -64,14 +64,17 @@ redesign. The owner reviews the look carefully.
      one grey line "Thinking. No programs running on this Mac"; waiting rows list the
      active descendant session titles. Click reveals the session directory (nothing for
      chat folders).
-   - Line 1: session title (medium weight), and to its right the project name
+   - Line 1: a 16 × 16 pt icon of the harness running the session (see "Harnesses" below),
+     6 pt gap, the session title (medium weight), and to its right the project name
      in the small grey font. Long titles truncate with "…"; the project stays visible.
-   - Line 2 (small grey, always one line, truncate with "…"):
+   - Line 2 (small grey, always one line, truncate with "…"), indented 22 pt (icon + gap)
+     so it aligns with the title text:
      `<worktree or folder name> · <activity> · <running time>`,
      e.g. `wiki-w14 · browser tests · 6 min`.
    - Right side: CPU % (100% = one core), memory in GB, and a small grey chevron "›"
      hinting at the hover panel (row grid `minmax(0,1fr) 42px 52px 8px`).
-   - Hover: a side panel lists that session's programs grouped by kind
+   - Hover: a side panel headed `<TITLE> · <HARNESS>` (e.g. "FIX LOGIN REDIRECT · CLAUDE CODE")
+     lists that session's programs grouped by kind
      (e.g. "Headless Chrome ×6", "workerd", "Playwright runner", "vite"), each with CPU and memory.
    - Click: reveal the session's folder in Finder. No other actions.
 4. **APPS & TOOLS** (heading renamed 2026-11-14; was "Everything that is not a session"): exactly two folded rows, styled like
@@ -113,11 +116,39 @@ redesign. The owner reviews the look carefully.
 5. If the database cannot be read or its layout changed, rows fall back to folder
    names. The app never writes to it.
 
+## Harnesses (owner, 2026-11-14, "option B")
+
+One SESSIONS list, sorted as before; every session row shows the official icon of the tool
+running it: OpenChamber, OpenCode, Claude Code, Codex or Pi. The folded "Agent tools" /
+"Other apps" rows keep no icon and no indent.
+
+- **OpenChamber vs OpenCode** (same opencode database): OpenChamber when `session_v2.metadata`
+  of the session or of any ancestor session contains an `"openchamber"` key (OpenChamber writes
+  it as soon as it creates a session; older sub-sessions lack it themselves), or when the
+  session's commands run under the `opencode serve` whose parent is OpenChamber.app.
+  Everything else in the database is OpenCode.
+- **Claude Code, Codex, Pi started on their own** (in a terminal): their CLI process with no
+  opencode process among its ancestors, plus all its descendants, is one session. `claude`
+  processes under opencode stay in "Claude Code ×N" as before.
+  - Listed only while working: its processes used ≥ 1% CPU in the last sample, or its
+    transcript was written in the last 2 minutes. A harness waiting for the user disappears
+    (its processes then count under "Everything else").
+  - Title from its transcript: Claude Code `custom-title`, then `ai-title` / `summary`, then the
+    first user message; Codex: thread name in `~/.codex/session_index.jsonl`, then the first user
+    message; Pi: `session_info` name, then the first user message. Fallback: the tool's name.
+    Project = name of its working folder.
+  - Grey line `<activity> · <time>`: the usual label of the programs it runs, or `working` when
+    it runs none; time since the last user message (at most since the process started).
+  - Hover lists its own processes as "<Harness> itself".
+- **Icons**: loaded at runtime from the installed apps (OpenChamber.app, OpenCode.app,
+  Claude.app for Claude Code, Codex.app or the Codex icon inside ChatGPT.app); Pi's mark is drawn
+  from its MIT-licensed logo. A grey "terminal" symbol when the app is not installed. No other
+  company's icon is stored in the repository.
+
 ## Not in v1
 
 Stopping processes, opening a session from the menu, notifications, a project-specific
-browser-test lock/queue, separate rows for other agent tools (Claude Code / Codex
-started outside OpenChamber), splitting "Claude Code ×N" per session, launch at login.
+browser-test lock/queue, splitting "Claude Code ×N" per session, Codex desktop-app sessions.
 
 ## Culprit line (owner, 2026-11-14)
 

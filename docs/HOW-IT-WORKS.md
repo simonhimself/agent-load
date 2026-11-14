@@ -44,9 +44,35 @@ flowchart LR
    to messages written shortly before the shell started, and cached per shell.
 3. Programs that lost their parent but run inside a `*-wt/<name>` worktree folder are
    assigned to the session that mentions that folder most in its recent messages.
-4. Classification order matters because everything descends from OpenChamber: session shells
-   first, then `claude` processes, then the opencode server and service, then the OpenChamber
+4. Classification order matters because everything descends from OpenChamber: terminal
+   harness sessions first (below), then session shells, then `claude` processes, then the opencode server and service, then the OpenChamber
    app itself, then other apps grouped by their `.app` bundle, then everything else.
+
+## Harnesses and terminal sessions
+
+Each row names the tool that runs it with its icon:
+
+- **OpenChamber or OpenCode**: both use opencode's database. A session is OpenChamber's when it
+  or an ancestor session has an `"openchamber"` key in `session_v2.metadata` (written as soon as
+  OpenChamber creates a session), or when its shell runs under the `opencode serve` that
+  OpenChamber.app started. Sessions with neither are OpenCode's. The `metadata` column is probed
+  separately; without it only the process-tree signal is used.
+- **Claude Code, Codex, Pi started on their own**: a `claude`, `codex` (npm wrapper or native
+  binary) or `pi` process with no opencode process above it. It and all its descendants form one
+  session. CLIs inside an app bundle and `codex app-server` (desktop apps) are not terminal
+  sessions.
+- **Transcripts** (read-only, under `~/.claude`, `~/.codex`, `~/.pi`):
+  - Claude Code: `~/.claude/projects/<cwd, every non-alphanumeric character as "-">/<id>.jsonl`;
+  - Codex: `~/.codex/sessions/YYYY/MM/DD/rollout-…-<id>.jsonl`, matched by the `cwd` in its first
+    line, titles from `~/.codex/session_index.jsonl`;
+  - Pi: `~/.pi/agent/sessions/--<cwd with / as ->--/<time>_<id>.jsonl`.
+  A process uses the file named in its arguments (`--resume`, `--session-id`, `resume <id>`,
+  `--session`), else a file in its folder created after it started (each file goes to the
+  latest-started process older than it). Claude Code files written for opencode (entrypoint
+  `sdk-ts`) are skipped. A new file is read at its head and tail (128 KB each), then only the
+  bytes appended since; unchanged files are not read.
+- **Shown only while working**: ≥ 1% CPU in the last sample, or the transcript was written in the
+  last 2 minutes. Otherwise its processes count under "Everything else".
 
 ## Which sessions are listed
 
@@ -89,6 +115,7 @@ APP="build/Agent Load.app/Contents/MacOS/AgentLoad"
 ```
 
 `--mockup-data` renders the illustrative numbers from `docs/mockup.html` instead of live data.
+`--hover-claude` hovers the first Claude Code row.
 
 ## Source layout
 
@@ -96,6 +123,7 @@ APP="build/Agent Load.app/Contents/MacOS/AgentLoad"
 | --- | --- |
 | `Sources/AgentLoadCore/ProcessReader.swift`, `SystemStats.swift` | Reading processes and system totals |
 | `Sources/AgentLoadCore/SessionDB.swift` | Read-only queries against opencode's database |
+| `Sources/AgentLoadCore/Harness.swift`, `Transcripts.swift` | Which tool runs a session; terminal sessions' transcripts |
 | `Sources/AgentLoadCore/Classifier.swift` | Assigning every process to exactly one row |
 | `Sources/AgentLoadCore/SessionListing.swift` | Which sessions are listed, and their order |
 | `Sources/AgentLoadCore/SnapshotBuilder.swift`, `Status.swift` | Rows, totals, status colour and culprit line |
