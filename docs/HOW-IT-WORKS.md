@@ -59,6 +59,14 @@ flowchart LR
    `ssh: ~/.cua/…/ssh.sock [mux]` to its VM), and helpers whose responsible process is one of
    those (its Virtualization.framework VM). Lima/Colima installed elsewhere is not Cua.
 
+## Worktree of a thinking session
+
+A thinking or waiting session runs no programs, and its database folder is the main checkout,
+so its worktree is taken from its own recent messages: one read-only query for its last 200
+messages, counting `/<repo>-wt/<name>` paths. The most mentioned worktree is used if it has at
+least 3 mentions and 60% of all worktree mentions. The result is cached per session and looked
+up again only after the session changed, at most once a minute.
+
 ## Claude Code brains
 
 A session on the `claude-code` provider runs a `claude` CLI process under opencode while it

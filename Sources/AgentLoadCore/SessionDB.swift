@@ -175,6 +175,19 @@ public final class SessionDB {
         return ok ? out : nil
     }
 
+    /// `data` of the session's latest `limit` messages, newest first (worktree inference).
+    /// One indexed read-only statement.
+    public func recentMessageData(sessionID: String, limit: Int = 200) -> [String] {
+        var out: [String] = []
+        _ = query("""
+            SELECT data FROM session_message WHERE session_id = ?1 ORDER BY time_created DESC LIMIT ?2
+            """, bind: { s in
+                sqlite3_bind_text(s, 1, sessionID, -1, Self.transient)
+                sqlite3_bind_int64(s, 2, Int64(limit))
+            }, row: { s in if let t = Self.text(s, 0) { out.append(t) } })
+        return out
+    }
+
     /// Text of the session's latest user message (`session_message` type "user", `data.text`),
     /// for matching a Claude Code brain to its session. One indexed lookup.
     public func lastUserText(sessionID: String) -> String? {

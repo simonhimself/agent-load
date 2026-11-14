@@ -81,6 +81,13 @@ flat #f5f5f7 / #2c2c2e with the hairline ring instead.
    other session, because they use capacity (owner, 2026-11-14).
    - Folder part of a process row: the worktree name when the programs run in a
      `*-wt/<name>` worktree, otherwise the session directory's name (omitted for chat folders).
+   - Worktree from messages (owner, 2026-11-14): when a row's programs show no worktree
+     (thinking and waiting rows, or programs outside one), the session's last 200 messages are
+     searched for `/<repo>-wt/<name>` paths; the most mentioned one is used if it has at least 3
+     mentions and at least 60% of all worktree mentions (e.g. `wiki-w22b · thinking · 14 min`),
+     and clicking reveals it. Cached per session, looked up again only when the session changed
+     and at most every 60 s. Not checked for existence (a stat in ~/Documents could raise the
+     folder-privacy prompt).
    The DB is read with one short read-only query per refresh (non-archived sessions
    updated in the last 7 days plus their ancestors; about 0.5 ms).
    Sorted by CPU (then memory); when memory is amber/red, by memory (then CPU) instead. Rows at 0%: thinking first, then waiting, then sleeping

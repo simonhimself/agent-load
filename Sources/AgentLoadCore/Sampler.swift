@@ -11,6 +11,12 @@ public final class Sampler {
     /// Claude Code brain → session id, per process (pid, start). Only matches are kept; an
     /// unmatched brain is tried again on the next refresh (its session may become busy).
     private var brainCache: [ProcKey: String] = [:]
+    /// Inferred worktree per session id: looked up again only when the session changed
+    /// (its last activity) and at most every 60 s.
+    private struct WorktreeGuess { var activity: Int64; var at: Date; var path: String? }
+    private var worktreeCache: [String: WorktreeGuess] = [:]
+    /// Wall time of the worktree lookups in the last refresh (for --dump).
+    public private(set) var lastWorktreeMs: Double = 0
 
     /// Keys present in the previous sample (two-sample rule for session shells and orphans).
     private var previousKeys = Set<ProcKey>()
@@ -96,7 +102,29 @@ public final class Sampler {
 
         // Terminal harness sessions: their transcripts (title, last user message, last write).
         let infos = transcripts.infos(for: result.harnessGroups)
-        return SnapshotBuilder.build(classification: result, totals: totals, now: now, home: home,
-                                     notes: notes, dbSessions: dbSessions, transcripts: infos, brains: brains)
+        var snap = SnapshotBuilder.build(classification: result, totals: totals, now: now, home: home,
+                                         notes: notes, dbSessions: dbSessions, transcripts: infos, brains: brains)
+
+        // Worktrees of rows whose programs don't show one (thinking, waiting, or programs outside
+        // a worktree), from the session's own recent messages (WorktreeInference).
+        let activity = Dictionary(dbSessions.map { ($0.id, $0.lastActivity) }, uniquingKeysWith: { a, _ in a })
+        let need = snap.sessions.filter(WorktreeInference.needsLookup).map(\.id)
+        worktreeCache = worktreeCache.filter { need.contains($0.key) }
+        let w0 = DispatchTime.now().uptimeNanoseconds
+        var worktrees: [String: String] = [:]
+        for id in need {
+            let act = activity[id] ?? 0
+            if let c = worktreeCache[id], c.activity == act || now.timeIntervalSince(c.at) < 60 {
+                if let p = c.path { worktrees[id] = p }
+                continue
+            }
+            let path = WorktreeInference.pick(db.recentMessageData(sessionID: id))
+            worktreeCache[id] = WorktreeGuess(activity: act, at: now, path: path)
+            if let path { worktrees[id] = path }
+        }
+        lastWorktreeMs = Double(DispatchTime.now().uptimeNanoseconds - w0) / 1e6
+        snap.sessions = WorktreeInference.apply(snap.sessions, worktrees: worktrees)
+        snap.notes.append(String(format: "worktree lookups %.1f ms", lastWorktreeMs))
+        return snap
     }
 }
