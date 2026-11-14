@@ -51,6 +51,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var latest: Snapshot?
     private var lastStatus: (StatusLevel, Int?)?
     private var isOpen: Bool { panel?.isVisible == true }
+    /// When the dropdown last closed. A click on the menu bar item while the dropdown is open
+    /// can close it on mouse-down (click monitor / losing key focus) before the item's action
+    /// runs on mouse-up; the action must then not reopen it.
+    private var lastClosed = Date.distantPast
 
     func applicationDidFinishLaunching(_ note: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -121,6 +125,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         b.image = img
         b.title = count.map(String.init) ?? "–"
         b.toolTip = "Agent Load"
+        // Changing image/title must not drop the pressed look while the dropdown is open.
+        b.highlight(isOpen)
     }
 
     // MARK: Panels
@@ -156,7 +162,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func togglePanel() {
-        isOpen ? closePanel() : openPanel()
+        if isOpen { closePanel(); return }
+        // This click already closed the dropdown on mouse-down: leave it closed.
+        if Date().timeIntervalSince(lastClosed) < 0.3 { return }
+        openPanel()
     }
 
     private func openPanel() {
@@ -164,7 +173,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         layoutPanel()
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
+        // Grey "pressed" background while open, like other menu bar items. Set on the next run
+        // loop turn: this runs inside the button's action, and the button resets its highlight
+        // right after the action returns.
         statusItem.button?.highlight(true)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.isOpen else { return }
+            self.statusItem.button?.highlight(true)
+        }
         clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             self?.closePanel()
         }
@@ -179,6 +195,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateSidePanel()
         panel.orderOut(nil)
         statusItem.button?.highlight(false)
+        lastClosed = Date()
         schedule(interval: Self.closedInterval)
     }
 
