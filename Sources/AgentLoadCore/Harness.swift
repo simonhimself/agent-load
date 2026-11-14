@@ -132,6 +132,8 @@ public struct TranscriptScan: Sendable, Equatable {
     public var autoTitle: String?
     public var firstUser: String?
     public var lastUserMs: Int64?
+    /// Full text of the latest user message (at most 4000 characters), for brain matching.
+    public var lastUser: String?
     /// Codex: session id from `session_meta` (for the session index).
     public var sessionID: String?
     public init() {}
@@ -178,6 +180,7 @@ public enum TranscriptParser {
             guard o["isMeta"] as? Bool != true, o["isSidechain"] as? Bool != true,
                   let msg = o["message"] as? [String: Any], let text = userText(msg["content"]) else { return }
             if s.firstUser == nil { s.firstUser = oneLine(text) }
+            s.lastUser = String(text.prefix(4000))
             if let ms = isoMs(o["timestamp"]) { s.lastUserMs = ms }
         default: break
         }

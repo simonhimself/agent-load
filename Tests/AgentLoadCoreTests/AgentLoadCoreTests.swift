@@ -149,7 +149,9 @@ struct ClassificationTests {
         #expect(s.sessions.first?.project == "my-app")
         #expect(s.sessions.first?.subtitle == "wiki-w14 · browser tests · 1 min")
         #expect(s.sessionCount == 4)
-        #expect(s.agentTools.map(\.name) == ["OpenChamber app", "opencode server", "opencode service", "Claude Code ×2"])
+        // One line per tool; both claude processes match no session here (no brains given).
+        #expect(s.agentTools.map(\.name) == ["OpenChamber", "Claude Code (unmatched) ×2"])
+        #expect(s.toolParts.map(\.name) == ["OpenChamber app", "opencode server", "opencode service"])
         #expect(s.otherApps.map(\.name).first == "Firefox")
         #expect(s.everythingElse.cpuPercent == max(0, 400 - s.listedCPUPercent))
     }
@@ -160,9 +162,9 @@ struct FoldedTests {
     @Test func foldedRowsMatchTheReference() {
         let s = MockupData.snapshot()
         let tools = s.agentToolsGroup, other = s.otherAppsGroup
-        #expect(tools.title == "Agent tools" && tools.members == "OpenChamber, opencode, Claude Code ×9")
+        #expect(tools.title == "Agent tools" && tools.members == "OpenChamber, Claude app, Cua")
         #expect(Format.cpu(tools.cpuPercent) == "51%" && Format.gb(tools.memBytes) == "3.2 GB")
-        #expect(tools.items.map(\.name) == ["OpenChamber app", "opencode server", "opencode service", "Claude Code ×9"])
+        #expect(tools.items.map(\.name) == ["OpenChamber", "Claude app", "Cua"])
         #expect(other.title == "Other apps" && other.members == "Firefox, Spotlight indexing, everything else")
         #expect(Format.cpu(other.cpuPercent) == "92%" && Format.gb(other.memBytes) == "5.1 GB")
         #expect(other.items.map(\.name) == ["Firefox", "Spotlight indexing", "Everything else"])
@@ -459,7 +461,7 @@ struct CulpritTests {
 
     @Test func cpuShortNamesBiggestCPUUserWithoutCount() {
         let s = snap(pressure: 1, load: 12)
-        #expect(s.verdict == "Claude Code is using 4.0 cores")
+        #expect(s.verdict == "Claude Code (unmatched) is using 4.0 cores")   // "×9" dropped
         #expect(s.sessions.first?.title == "W14 Images")
     }
 }

@@ -124,7 +124,7 @@ public enum SnapshotBuilder {
 
     public static func build(classification c: Classifier.Result, totals t: SystemTotals, now: Date,
                              home: String, notes: [String] = [], dbSessions: [DBSession] = [],
-                             transcripts: [ProcKey: TranscriptInfo] = [:]) -> Snapshot {
+                             transcripts: [ProcKey: TranscriptInfo] = [:], brains: [ProcKey: String] = [:]) -> Snapshot {
         let status = StatusRules.evaluate(pressure: t.pressureLevel, load: t.load1, cores: t.cores, heavySwap: t.heavySwap)
         let nowMicros = Int64(now.timeIntervalSince1970 * 1_000_000)
 
@@ -167,17 +167,42 @@ public enum SnapshotBuilder {
         sessions = SessionListing.rows(processRows: sessions, db: dbSessions, nowMs: nowMicros / 1000, home: home,
                                        byMemory: status.memLevel != .green)
 
-        // Agent tools (only rows that exist)
+        // Claude Code brains (BrainMatcher): each matched one joins its session row: numbers, and
+        // "Claude Code (agent)" in the hover panel. The grey line is unchanged ("thinking" stays).
+        // A brain whose session has no row, or that matched nothing, stays in Agent tools.
+        var unmatched: [Classifier.ClaudeGroup] = []
+        let groups = c.claudeGroups.isEmpty && !c.claude.isEmpty
+            ? [Classifier.ClaudeGroup(root: c.claude[0], procs: c.claude, cwd: "")] : c.claudeGroups
+        var unmatchedCount = c.claudeGroups.isEmpty ? c.claudeCount : 0
+        for g in groups {
+            guard let sid = brains[g.root.key], let i = sessions.firstIndex(where: { $0.id == sid }) else {
+                unmatched.append(g)
+                if !c.claudeGroups.isEmpty { unmatchedCount += 1 }
+                continue
+            }
+            let (cpu, mem) = sum(g.procs)
+            sessions[i].cpuPercent += cpu
+            sessions[i].memBytes += mem
+            sessions[i].processes = (sessions[i].processes + g.procs).sorted { $0.pid < $1.pid }
+            sessions[i].kinds.append(KindGroup(kind: "Claude Code (agent)", count: 1, cpuPercent: cpu, memBytes: mem))
+            sessions[i].kinds.sort { ($0.cpuPercent, Double($0.memBytes)) > ($1.cpuPercent, Double($1.memBytes)) }
+        }
+        if !brains.isEmpty { sessions = SessionListing.sorted(sessions, byMemory: status.memLevel != .green) }
+
+        // Agent tools: one line per tool (owner, 2026-11-14). OpenChamber = its app + the opencode
+        // server and service it runs (kept apart in `toolParts` for --dump).
         var tools: [SimpleRow] = []
         func addTool(_ name: String, _ procs: [ProcInfo]) {
             guard !procs.isEmpty else { return }
             let (cpu, mem) = sum(procs)
             tools.append(SimpleRow(name: name, cpuPercent: cpu, memBytes: mem, processes: procs))
         }
-        addTool("OpenChamber app", c.openChamber)
-        addTool("opencode server", c.server)
-        addTool("opencode service", c.service)
-        addTool("Claude Code ×\(c.claudeCount)", c.claude)
+        addTool("OpenChamber", c.openChamber + c.server + c.service)
+        var toolParts: [SimpleRow] = []
+        for (n, ps) in [("OpenChamber app", c.openChamber), ("opencode server", c.server), ("opencode service", c.service)] where !ps.isEmpty {
+            let (cpu, mem) = sum(ps)
+            toolParts.append(SimpleRow(name: n, cpuPercent: cpu, memBytes: mem, processes: ps))
+        }
         // Claude desktop app and Cua run virtual machines. A VM's footprint counts guest memory that
         // is mostly not resident (12 GB footprint, 0.4 GB resident), so these two rows, and only
         // these agent tools rows, use the same outlier guard as Everything else.
@@ -188,6 +213,9 @@ public enum SnapshotBuilder {
         }
         addVMTool("Claude app", c.claudeApp)
         addVMTool("Cua", c.cua)
+        // claude processes under opencode that match no session (shown only when there are some).
+        addTool(unmatchedCount > 1 ? "Claude Code (unmatched) ×\(unmatchedCount)" : "Claude Code (unmatched)",
+                unmatched.flatMap(\.procs))
 
         // Other apps: rank by share of the machine (CPU share + memory share) so both a
         // 3 GB browser and a 60%-CPU indexer can show up.
@@ -241,6 +269,7 @@ public enum SnapshotBuilder {
                         sessions: sessions, agentTools: tools, otherApps: shownApps, everythingElse: rest,
                         listedMemBytes: listedMem, listedCPUPercent: listedCPU, notes: notes)
         snap.allAppNames = c.apps.keys.sorted()
+        snap.toolParts = toolParts
         snap.swapBytesPerSec = t.swapBytesPerSec
         return snap
     }

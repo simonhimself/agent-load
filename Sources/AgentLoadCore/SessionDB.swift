@@ -19,6 +19,8 @@ public final class SessionDB {
     /// SQL for "this session row carries OpenChamber's metadata key" (0 without the column).
     private var ocFlagSQL: String { hasMetadata ? "(instr(coalesce(%@.metadata, ''), '\"openchamber\"') > 0)" : "0" }
     private func ocFlag(_ alias: String) -> String { ocFlagSQL.replacingOccurrences(of: "%@", with: alias) }
+    /// `session_v2.model` exists (provider of the session's model, e.g. "claude-code"); probed separately.
+    private var hasModel = false
 
     public init(path: String = NSHomeDirectory() + "/.local/share/opencode/opencode.db") {
         self.path = path
@@ -44,6 +46,7 @@ public final class SessionDB {
             return nil
         }
         hasMetadata = columnsExist(h, table: "session_v2", ["metadata"])
+        hasModel = columnsExist(h, table: "session_v2", ["model"])
         db = h
         return h
     }
@@ -158,7 +161,8 @@ public final class SessionDB {
                         THEN max(s.time_updated, coalesce((SELECT max(m.time_created) FROM session_message m
                                                            WHERE m.session_id = s.id), 0))
                         ELSE s.time_updated END,
-                   \(ocFlag("s"))
+                   \(ocFlag("s")),
+                   \(hasModel ? "json_extract(s.model, '$.providerID')" : "NULL")
             FROM session_v2 s WHERE s.id IN keep AND s.time_archived IS NULL
             """
         var out: [DBSession] = []
@@ -166,9 +170,20 @@ public final class SessionDB {
             func int(_ i: Int32) -> Int64? { sqlite3_column_type(s, i) == SQLITE_NULL ? nil : sqlite3_column_int64(s, i) }
             out.append(DBSession(id: Self.text(s, 0) ?? "", title: Self.text(s, 1) ?? "", directory: Self.text(s, 2) ?? "",
                                  parentID: Self.text(s, 3), timeBusy: int(4), timeIdle: int(5), lastActivity: int(6) ?? 0,
-                                 openChamberOwn: sqlite3_column_int64(s, 7) != 0))
+                                 openChamberOwn: sqlite3_column_int64(s, 7) != 0, provider: Self.text(s, 8)))
         })
         return ok ? out : nil
+    }
+
+    /// Text of the session's latest user message (`session_message` type "user", `data.text`),
+    /// for matching a Claude Code brain to its session. One indexed lookup.
+    public func lastUserText(sessionID: String) -> String? {
+        var out: String?
+        _ = query("""
+            SELECT json_extract(data, '$.text') FROM session_message
+            WHERE session_id = ?1 AND type = 'user' ORDER BY time_created DESC LIMIT 1
+            """, bind: { sqlite3_bind_text($0, 1, sessionID, -1, Self.transient) }, row: { s in out = Self.text(s, 0) })
+        return out
     }
 
     /// Self-check for `--verify-db`: takes the last `limit` shell tool calls, re-escapes each

@@ -346,11 +346,15 @@ struct SidePanelView: View {
         heading = row.title                     // shown in caps: "FIX LOGIN REDIRECT · CLAUDE CODE"
         headingSuffix = row.harness.displayName
         switch row.state {
-        case .thinking:
+        case .thinking where row.kinds.isEmpty:
             items = []
             note = "Thinking. No programs running on this Mac"
+        case .thinking:
+            // Thinking with its Claude Code brain running here: list it.
+            items = row.kinds.map { PanelItem(label: $0.label, cpu: $0.cpuPercent, mem: $0.memBytes) }
         case .waiting:
             items = row.waitingFor.map { PanelItem(label: $0, cpu: nil, mem: nil) }
+                + row.kinds.map { PanelItem(label: $0.label, cpu: $0.cpuPercent, mem: $0.memBytes) }
         case .processes:
             items = SidePanelView.shownKinds(row.kinds).map { PanelItem(label: $0.label, cpu: $0.cpuPercent, mem: $0.memBytes) }
         }
@@ -400,7 +404,7 @@ struct SidePanelView: View {
     /// is significant) its three heaviest, so the panel is never empty.
     static func shownKinds(_ kinds: [KindGroup]) -> [KindGroup] {
         // A terminal harness's own processes ("Claude Code itself") are always listed.
-        let significant = kinds.filter { isWorthShowing($0) || $0.kind.hasSuffix(" itself") }
+        let significant = kinds.filter { isWorthShowing($0) || $0.kind.hasSuffix(" itself") || $0.kind == "Claude Code (agent)" }
         return significant.isEmpty ? Array(kinds.prefix(3)) : significant
     }
 }

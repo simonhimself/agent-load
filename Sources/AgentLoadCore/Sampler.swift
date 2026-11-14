@@ -8,6 +8,9 @@ public final class Sampler {
     private let db: SessionDB
     private let home = NSHomeDirectory()
     private let transcripts = TranscriptStore()
+    /// Claude Code brain → session id, per process (pid, start). Only matches are kept; an
+    /// unmatched brain is tried again on the next refresh (its session may become busy).
+    private var brainCache: [ProcKey: String] = [:]
 
     /// Keys present in the previous sample (two-sample rule for session shells and orphans).
     private var previousKeys = Set<ProcKey>()
@@ -73,9 +76,27 @@ public final class Sampler {
         var notes: [String] = []
         if let e = db.lastError { notes.append("opencode DB: \(e)") }
         notes.append(String(format: "listing query %.1f ms, %d sessions read", lastListingQueryMs, dbSessions.count))
+        // Claude Code brains → their sessions (BrainMatcher).
+        let live = Set(result.claudeGroups.map(\.root.key))
+        brainCache = brainCache.filter { live.contains($0.key) }
+        var userTexts: [String: String?] = [:]
+        var brains: [ProcKey: String] = [:]
+        for g in result.claudeGroups {
+            if let sid = brainCache[g.root.key] { brains[g.root.key] = sid; continue }
+            let mine = transcripts.brainLastUser(root: g.root, cwd: g.cwd)
+            let sid = BrainMatcher.match(cwd: g.cwd, startMs: g.root.startMicros / 1000, transcriptLastUser: mine,
+                                         sessions: dbSessions, nowMs: nowMs) { id in
+                if let t = userTexts[id] { return t }
+                let t = self.db.lastUserText(sessionID: id)
+                userTexts[id] = t
+                return t
+            }
+            if let sid { brainCache[g.root.key] = sid; brains[g.root.key] = sid }
+        }
+
         // Terminal harness sessions: their transcripts (title, last user message, last write).
         let infos = transcripts.infos(for: result.harnessGroups)
         return SnapshotBuilder.build(classification: result, totals: totals, now: now, home: home,
-                                     notes: notes, dbSessions: dbSessions, transcripts: infos)
+                                     notes: notes, dbSessions: dbSessions, transcripts: infos, brains: brains)
     }
 }

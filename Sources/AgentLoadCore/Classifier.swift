@@ -61,6 +61,14 @@ public enum Classifier {
         public var underOpenChamber = false
     }
 
+    /// One `claude` CLI process run by opencode and its remaining descendants (e.g. MCP servers).
+    public struct ClaudeGroup {
+        public var root: ProcInfo
+        public var procs: [ProcInfo]
+        public var cwd: String
+        public init(root: ProcInfo, procs: [ProcInfo], cwd: String) { self.root = root; self.procs = procs; self.cwd = cwd }
+    }
+
     /// A terminal harness session (Claude Code, Codex or Pi started on its own).
     public struct HarnessGroup {
         public var harness: Harness
@@ -82,6 +90,9 @@ public enum Classifier {
         /// Terminal harness sessions (shown only while working; see SnapshotBuilder).
         public var harnessGroups: [HarnessGroup] = []
         public var claude: [ProcInfo] = []
+        /// The same `claude` processes per CLI process (root + its non-session descendants), to
+        /// attribute each "brain" to its session (BrainMatcher).
+        public var claudeGroups: [ClaudeGroup] = []
         /// Number of `claude` CLI processes (the "×N"; descendants are not counted).
         public var claudeCount = 0
         public var server: [ProcInfo] = []
@@ -252,7 +263,9 @@ public enum Classifier {
         // 2. claude CLI processes and their non-session descendants.
         for p in procs where isClaude(p) && !assigned.contains(p.pid) {
             result.claudeCount += 1
-            result.claude += takeSubtree(p.pid)
+            let sub = takeSubtree(p.pid)
+            result.claude += sub
+            result.claudeGroups.append(ClaudeGroup(root: p, procs: sub, cwd: env.cwd(p)))
         }
 
         // 3. opencode serve (server vs --service) and their remaining helpers.

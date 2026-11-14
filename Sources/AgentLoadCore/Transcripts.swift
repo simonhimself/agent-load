@@ -78,11 +78,33 @@ public final class TranscriptStore {
             }
             out[g.root.key] = TranscriptInfo(path: p, title: title, lastUserMs: st.scan.lastUserMs, modifiedMs: st.mtimeMs)
         }
-        // Forget files no process uses any more.
-        let used = Set(out.values.map(\.path))
+        // Forget files no process uses any more (brain transcripts read since the last call count).
+        let used = Set(out.values.map(\.path)).union(brainFiles)
         files = files.filter { used.contains($0.key) }
+        brainFiles.removeAll()
         return out
     }
+
+    /// Latest user message of a Claude Code brain (a `claude` run by opencode for a session on the
+    /// claude-code provider): its transcript is `--resume <id>`'s file in the cwd's folder, else
+    /// the newest file there created after the process started. Read incrementally like the others.
+    public func brainLastUser(root: ProcInfo, cwd: String) -> String? {
+        guard !cwd.isEmpty else { return nil }
+        let dir = claudeRoot + "/" + HarnessDetect.claudeFolderName(cwd: cwd)
+        var path: String?
+        if let id = HarnessDetect.argValue(root.argv, ["--resume", "-r", "--session-id"]), Self.isSafeName(id) {
+            path = dir + "/" + id + ".jsonl"
+        } else {
+            let startMs = root.startMicros / 1000
+            path = candidates(in: dir, harness: .pi, cwds: [], modifiedSince: startMs - Self.slackMs)   // .pi: no filtering
+                .filter { $0.created >= startMs - Self.slackMs }.max { $0.created < $1.created }?.path
+        }
+        guard let p = path, let st = read(p, harness: .claudeCode) else { return nil }
+        brainFiles.insert(p)
+        return st.scan.lastUser
+    }
+    /// Transcripts read for brains this refresh (kept in the cache next to the harness ones).
+    private var brainFiles = Set<String>()
 
     // MARK: Locating
 

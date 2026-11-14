@@ -146,11 +146,14 @@ public struct DBSession: Sendable, Equatable {
     public var lastActivity: Int64
     /// This session row itself carries OpenChamber's metadata key (ancestors: see SessionListing).
     public var openChamberOwn: Bool
+    /// Provider of the session's model (`session_v2.model.providerID`), e.g. "claude-code".
+    public var provider: String?
     public init(id: String, title: String, directory: String, parentID: String? = nil,
-                timeBusy: Int64? = nil, timeIdle: Int64? = nil, lastActivity: Int64 = 0, openChamberOwn: Bool = false) {
+                timeBusy: Int64? = nil, timeIdle: Int64? = nil, lastActivity: Int64 = 0, openChamberOwn: Bool = false,
+                provider: String? = nil) {
         self.id = id; self.title = title; self.directory = directory; self.parentID = parentID
         self.timeBusy = timeBusy; self.timeIdle = timeIdle; self.lastActivity = lastActivity
-        self.openChamberOwn = openChamberOwn
+        self.openChamberOwn = openChamberOwn; self.provider = provider
     }
     /// OpenChamber's busy flag: busy more recently than idle.
     public var flaggedBusy: Bool { (timeBusy ?? 0) > (timeIdle ?? 0) }
@@ -203,26 +206,19 @@ public struct Snapshot: Sendable {
     public var notes: [String]
     /// Every app group found, including those too small to list (for --dump).
     public var allAppNames: [String] = []
+    /// The parts of the "OpenChamber" agent tools line (app, opencode server, opencode service), for --dump.
+    public var toolParts: [SimpleRow] = []
     /// Active swapping, bytes/s (shown in the memory card while ≥ Format.swapShownFrom).
     public var swapBytesPerSec: Double = 0
 
-    /// Folded "Agent tools" row: OpenChamber app + opencode server + opencode service + Claude Code
-    /// + Claude app (the desktop app) + Cua.
+    /// Folded "Agent tools" row.
     public var agentToolsGroup: FoldedGroup {
-        var names: [String] = []
-        for r in agentTools {
-            let n: String
-            switch r.name {
-            case "OpenChamber app": n = "OpenChamber"
-            case "opencode server", "opencode service": n = "opencode"
-            default: n = r.name            // "Claude Code ×N"
-            }
-            if !names.contains(n) { names.append(n) }
-        }
-        return FoldedGroup(id: "folded:tools", title: "Agent tools", panelTitle: "Agent tools",
-                           members: names.joined(separator: ", "),
-                           cpuPercent: agentTools.reduce(0) { $0 + $1.cpuPercent },
-                           memBytes: agentTools.reduce(0) { $0 + $1.memBytes }, items: agentTools)
+        // One line per tool (OpenChamber, Claude app, Cua, Claude Code (unmatched)); the grey line
+        // names them in that order.
+        FoldedGroup(id: "folded:tools", title: "Agent tools", panelTitle: "Agent tools",
+                    members: agentTools.map(\.name).joined(separator: ", "),
+                    cpuPercent: agentTools.reduce(0) { $0 + $1.cpuPercent },
+                    memBytes: agentTools.reduce(0) { $0 + $1.memBytes }, items: agentTools)
     }
 
     /// Folded "Other apps" row: the named top apps in order, then Everything else.

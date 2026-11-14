@@ -31,7 +31,8 @@ enum Dump {
             line("    hover: " + r.kinds.map { "\($0.label) \(Format.cpu($0.cpuPercent)) \(Format.gb($0.memBytes))" }.joined(separator: " | "))
             if verbose { procs(r.processes) }
         }
-        line("AGENT TOOLS")
+        line("AGENT TOOLS   (members: \(s.agentToolsGroup.members))")
+        for p in s.toolParts { line("  · part of OpenChamber: \(p.name)   \(Format.cpu(p.cpuPercent))  \(Format.gb(p.memBytes))   (\(p.processes.count) processes)") }
         for r in s.agentTools {
             line("  \(r.name)   \(Format.cpu(r.cpuPercent))  \(Format.gb(r.memBytes))   (\(r.processes.count) processes)")
             if verbose { procs(r.processes.filter { !$0.isZombie }) }

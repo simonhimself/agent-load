@@ -315,7 +315,7 @@ struct WorkingRuleTests {
         // Pi: 0% CPU, no transcript → not working, not listed; its process goes to Everything else.
         #expect(!s.sessions.contains { $0.harness == .pi })
         #expect(s.everythingElse.processes.contains { $0.pid == 800 })
-        #expect(s.agentToolsGroup.members.contains("Claude Code ×1"))
+        #expect(s.agentToolsGroup.members == "OpenChamber, Claude Code (unmatched)")   // claude under opencode, no brain match given
     }
 
     @Test func workingWithoutPrograms() {

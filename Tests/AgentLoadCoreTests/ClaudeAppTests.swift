@@ -58,8 +58,8 @@ struct ClaudeAppTests {
         c.server = [R(31, 865, "opencode", path: "/o", mem: gb / 8)]
         let t = SystemTotals(load1: 1, cores: 8, pressureLevel: 1, memUsedBytes: 1, memTotalBytes: 16 * gb, machineCPUPercent: 100)
         let s = SnapshotBuilder.build(classification: c, totals: t, now: Date(), home: "/Users/me")
-        #expect(s.agentTools.map(\.name) == ["OpenChamber app", "opencode server", "Claude Code ×1", "Claude app"])
-        #expect(s.agentToolsGroup.members == "OpenChamber, opencode, Claude Code ×1, Claude app")
+        #expect(s.agentTools.map(\.name) == ["OpenChamber", "Claude app", "Claude Code (unmatched)"])
+        #expect(s.agentToolsGroup.members == "OpenChamber, Claude app, Claude Code (unmatched)")
         let app = s.agentTools.first { $0.name == "Claude app" }!
         #expect(app.cpuPercent == 17)
         // VM counted with its resident 0.4 GB, not its 12 GB footprint.
@@ -115,9 +115,8 @@ struct CuaTests {
         c2.server = [R(31, 1, "opencode", path: "/o", mem: gb / 8)]
         c2.openChamber = [R(32, 1, "OpenChamber", path: "/Applications/OpenChamber.app/Contents/MacOS/OpenChamber", mem: gb / 8)]
         let s = SnapshotBuilder.build(classification: c2, totals: t, now: Date(), home: home)
-        #expect(s.agentToolsGroup.members == "OpenChamber, opencode, Claude Code ×1, Claude app, Cua")
+        #expect(s.agentToolsGroup.members == "OpenChamber, Claude app, Cua, Claude Code (unmatched)")
         let row = s.agentTools.first { $0.name == "Cua" }!
-        #expect(s.agentTools.last?.name == "Cua")
         // VM with its resident 0.4 GB, not its 12 GB footprint.
         #expect(row.memBytes == gb / 8 + gb / 16 + gb / 16 + gb / 32 + (400 << 20))
         #expect(!s.otherApps.contains { $0.name == "Cua Spaces" })
