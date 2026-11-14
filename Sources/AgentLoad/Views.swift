@@ -432,12 +432,21 @@ struct MoreButton: View {
 /// Native menu corner: circular 12 pt, measured from a native NSMenu on macOS 26.
 let menuCornerRadius: CGFloat = 12
 
+/// macOS 26+: the live windows sit on Liquid Glass (NSGlassEffectView), which brings its own rim,
+/// so the hairline ring is drawn only on the older material and in flat PNG renders.
+var usesLiquidGlass: Bool {
+    if #available(macOS 26, *) { return !CommandLine.arguments.contains("--debug-old-material") }
+    return false
+}
+
 extension View {
     /// The dropdown / hover panel surface: the flat menu colour for PNG renders (live, the window's
-    /// NSVisualEffectView shows the menu material instead), plus the native hairline ring.
+    /// window shows Liquid Glass or the menu material instead), plus the hairline ring where the
+    /// surface has no rim of its own.
     func menuSurface(flat: Bool, p: Palette) -> some View {
         background(RoundedRectangle(cornerRadius: menuCornerRadius).fill(flat ? p.background : Color.clear))
-            .overlay(RoundedRectangle(cornerRadius: menuCornerRadius).strokeBorder(p.menuBorder, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: menuCornerRadius)
+                .strokeBorder(flat || !usesLiquidGlass ? p.menuBorder : Color.clear, lineWidth: 0.5))
     }
 }
 

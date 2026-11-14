@@ -92,6 +92,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // --debug-dark: dark appearance for this run only (to check the menu material in dark
         // mode without changing the system setting).
         if CommandLine.arguments.contains("--debug-dark") { NSApp.appearance = NSAppearance(named: .darkAqua) }
+        // --debug-compare <light|dark> <png>: same backdrop behind our dropdown and a native menu
+        // popped up next to it, then a screenshot of both (to match the native look).
+        if let i = CommandLine.arguments.firstIndex(of: "--debug-compare"), i + 2 < CommandLine.arguments.count {
+            debugCompare(dark: CommandLine.arguments[i + 1] == "dark", out: CommandLine.arguments[i + 2])
+        }
         // --debug-click: presses the menu bar item through its real action (as a mouse click
         // does), to check that it stays highlighted while the dropdown is open.
         if CommandLine.arguments.contains("--debug-click") {
@@ -171,10 +176,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sidePanel.contentView = Self.menuMaterial(around: sideHost)
     }
 
-    /// `NSVisualEffectView` with the menu material (desktop shows through, blurred), clipped to
-    /// the native menu corner (12 pt, measured on macOS 26) with a mask image so the blur, the
-    /// content and the window shadow all get the rounded shape. `host` fills it.
-    static func menuMaterial(around host: NSView) -> NSVisualEffectView {
+    /// The surface native menus have. macOS 26+: Liquid Glass (`NSGlassEffectView`, style
+    /// regular, 12 pt corners as measured on native menus), with `host` as its content view.
+    /// Older macOS: `NSVisualEffectView` with the menu material, clipped to the corner with a
+    /// mask image so the blur, the content and the window shadow all get the rounded shape.
+    static func menuMaterial(around host: NSView) -> NSView {
+        if #available(macOS 26, *), usesLiquidGlass {
+            let g = NSGlassEffectView()
+            g.style = .regular
+            g.cornerRadius = menuCornerRadius
+            host.autoresizingMask = [.width, .height]
+            g.contentView = host
+            // Clipped container: the glass alone leaves the window's rectangle in the window
+            // shadow (square corners); clipped to the rounded shape, the shadow follows it.
+            let clip = NSView()
+            clip.wantsLayer = true
+            clip.layer?.cornerRadius = menuCornerRadius
+            clip.layer?.masksToBounds = true
+            g.autoresizingMask = [.width, .height]
+            clip.addSubview(g)
+            return clip
+        }
         let v = NSVisualEffectView()
         v.material = .menu
         v.blendingMode = .behindWindow
@@ -193,6 +215,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         v.addSubview(host)
         return v
     }
+
+    /// See `--debug-compare`. A backdrop window (white or dark, with some text and colour so
+    /// translucency shows) under the dropdown, then a native NSMenu left of the dropdown.
+    private func debugCompare(dark: Bool, out: String) {
+        if dark { NSApp.appearance = NSAppearance(named: .darkAqua) }
+        guard let screen = NSScreen.main else { return }
+        let f = screen.visibleFrame
+        let back = NSWindow(contentRect: NSRect(x: f.maxX - 900, y: f.maxY - 760, width: 900, height: 760),
+                            styleMask: .borderless, backing: .buffered, defer: false)
+        back.level = .floating
+        back.ignoresMouseEvents = true
+        back.contentView = NSHostingView(rootView: VStack(alignment: .leading, spacing: 14) {
+            ForEach(0..<14) { n in
+                Text("Backdrop text line \(n): the quick brown fox jumps over the lazy dog")
+                    .font(.system(size: 15)).foregroundStyle(dark ? Color(white: 0.85) : Color(white: 0.15))
+            }
+            HStack(spacing: 0) { Color.blue; Color.orange; Color.green }.frame(height: 60)
+        }.padding(30).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(dark ? Color(white: 0.12) : Color.white))
+        back.orderFrontRegardless()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            self?.openPanel()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                guard let self else { return }
+                // Hover the first session row too (highlight + side panel).
+                if let first = self.model.snapshot?.sessions.first {
+                    self.model.hoveredRowID = first.id
+                    self.updateSidePanel()
+                }
+                let menu = NSMenu()
+                for t in ["Open at Login", "Check for Updates…", "Settings…", "Quit"] {
+                    menu.addItem(withTitle: t, action: #selector(self.debugNoop), keyEquivalent: "").target = self
+                }
+                // Below the hover panel (which opens left of the dropdown when there is no room right).
+                let at = NSPoint(x: self.panel.frame.minX - 240, y: self.panel.frame.minY + 160)
+                let shot = Timer(timeInterval: 1.5, repeats: false) { _ in
+                    let p = Process()
+                    p.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+                    let r = back.frame
+                    p.arguments = ["-x", "-R", "\(Int(r.minX)),\(Int(screen.frame.maxY - r.maxY)),\(Int(r.width)),\(Int(r.height))", out]
+                    try? p.run(); p.waitUntilExit()
+                    menu.cancelTracking()
+                    DispatchQueue.main.async { NSApp.terminate(nil) }
+                }
+                RunLoop.main.add(shot, forMode: .common)
+                RunLoop.main.add(shot, forMode: .eventTracking)
+                menu.popUp(positioning: nil, at: at, in: nil)
+            }
+        }
+    }
+
+    @objc private func debugNoop() {}
 
     @objc private func togglePanel() {
         if isOpen { closePanel(); return }
