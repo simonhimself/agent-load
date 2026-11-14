@@ -317,7 +317,10 @@ struct SessionRowView: View {
             Numbers(cpu: row.cpuPercent, mem: row.memBytes, p: p)
         }
         .padding(.vertical, 5).padding(.horizontal, 4)   // mockup: padding 5px 4px
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovered ? p.rowAccent : Color.clear))
+        // Highlight reaches out to 5 pt from the dropdown's edge like a native menu item
+        // (the dropdown has 12 pt side padding; reaching 7 pt further leaves 5 pt).
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovered ? p.rowAccent : Color.clear)
+            .padding(.horizontal, -7))
     }
 }
 
@@ -338,7 +341,10 @@ struct FoldedRowView: View {
             Numbers(cpu: group.cpuPercent, mem: group.memBytes, p: p)
         }
         .padding(.vertical, 5).padding(.horizontal, 4)   // same as session rows
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovered ? p.rowAccent : Color.clear))
+        // Highlight reaches out to 5 pt from the dropdown's edge like a native menu item
+        // (the dropdown has 12 pt side padding; reaching 7 pt further leaves 5 pt).
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovered ? p.rowAccent : Color.clear)
+            .padding(.horizontal, -7))
     }
 }
 

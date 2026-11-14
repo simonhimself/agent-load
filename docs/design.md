@@ -233,6 +233,6 @@ Green keeps "Room for another session".
 ## Row hover (owner, 2026-11-14)
 
 Hovering a session row or the Agent tools / Other apps row highlights it in the system accent
-colour (blue by default, follows System Settings), 8 pt corners, with all its text white and the
+colour (blue by default, follows System Settings), 8 pt corners, reaching to 5 pt from the dropdown edge, with all its text white and the
 grey text white at 80%, like a highlighted item in a native menu. The "…" button keeps its grey
 hover.
