@@ -58,6 +58,16 @@ flowchart LR
    `ssh: ~/.cua/…/ssh.sock [mux]` to its VM), and helpers whose responsible process is one of
    those (its Virtualization.framework VM). Lima/Colima installed elsewhere is not Cua.
 
+## Claude Code brains
+
+A session on the `claude-code` provider runs a `claude` CLI process under opencode while it
+works. The app matches each such process to its session: the only busy `claude-code` session in
+the process's working folder; with several, the one whose latest user message matches the latest
+user message in the process's transcript (`--resume <id>` names the file in
+`~/.claude/projects/<folder>/`); with several still, the one that became busy closest to the
+process start. Matched processes join their session row ("Claude Code (agent)" in the hover);
+the rest appear in Agent tools as "Claude Code (unmatched)".
+
 ## Harnesses and terminal sessions
 
 Each row names the tool that runs it with its icon:

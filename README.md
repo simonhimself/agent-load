@@ -14,7 +14,8 @@
   battery: green is calm, amber means wait, red means free something up.
 - **Find the culprit.** Every unfinished OpenChamber / OpenCode session gets a row with its
   CPU and memory, and so do Claude Code, Codex and Pi sessions started in a terminal while they
-  work. Each row shows the icon of the tool running it. When the Mac is strained, the line under the headline names the biggest
+  work. Each row shows the icon of the tool running it, and a session on a Claude model
+  includes the Claude Code process that does its thinking. When the Mac is strained, the line under the headline names the biggest
   user, even when it's another app such as a browser.
 - **Look inside a session.** Hover a row to see its programs: headless Chrome, test
   runners, dev servers. Click it to open the session's folder in Finder.
@@ -37,7 +38,7 @@ update the installed app. To start it at login, choose **… → Open at Login**
 
 1. Glance at the dot: the number is how many agent sessions have unfinished work.
 2. Click it for the breakdown: status, CPU and memory gauges, one row per session, then
-   **Agent tools** (OpenChamber, opencode, Claude Code, the Claude app, Cua) and **Other apps**.
+   **Agent tools** (OpenChamber, the Claude app, Cua) and **Other apps**.
 3. Hover any row for its details. The **…** button top-right has **Open at Login** and **Quit**.
 
 CPU is shown per core: 100% is one full core, so 8 cores give 800%. The CPU gauge shows
@@ -79,6 +80,9 @@ Command Line Tools are installed.
   transcript files, whose format can change. Pi support is built from its documentation and
   has not been tried with a real Pi. Codex desktop-app sessions are not listed.
 - A Claude Code started by opencode whose parent has gone looks like one started on its own.
+- opencode does not record which Claude Code process serves which session; the app infers it
+  from the folder and the latest message. Processes it cannot match show as
+  "Claude Code (unmatched)" under Agent tools.
 - Claude desktop app threads are not session rows: their work runs on Anthropic's servers or
   inside the app's one shared virtual machine, which can't be split per thread. The app and its
   VM appear together as "Claude app" under Agent tools; Cua (Cua Spaces, its runtime in `~/.cua`

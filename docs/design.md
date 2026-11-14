@@ -97,12 +97,11 @@ draw window material and use the flat #f5f5f7 / #2c2c2e instead.
    chevron). Hovering either opens the same side panel as a session, headed
    AGENT TOOLS / OTHER APPS and listing ALL its items with CPU and memory (no hiding of
    small items). Clicking them does nothing.
-   - **Agent tools**: grey line = member names, e.g. `OpenChamber, opencode, Claude Code ×1, Claude app, Cua`;
-     numbers = sum of its items. Items: OpenChamber app (main app + all its helper
-     processes), opencode server (the `opencode serve` started by OpenChamber),
-     opencode service (`opencode serve --service` and its helpers such as opencode-pty),
-     Claude Code ×N (the `claude` CLI processes run by opencode; Claude Code started on its own
-     is a session row, see "Harnesses"), Claude app (owner, 2026-11-14: the Claude desktop app,
+   - **Agent tools**: one line per tool (owner, 2026-11-14); grey line = their names, e.g.
+     `OpenChamber, Claude app, Cua`; numbers = sum of its items. Items, in this order:
+     OpenChamber (the app with all its helper processes, plus the opencode server it starts
+     and the opencode service `opencode serve --service` with helpers such as opencode-pty;
+     `--dump` still lists the three parts), Claude app (owner, 2026-11-14: the Claude desktop app,
      main + helpers by bundle path or responsible app, and the Virtualization.framework VM it runs
      its local agent work in, recognised by its responsible process being Claude.app; other apps'
      VMs such as Docker, Lima/Colima, UTM or Parallels stay where they were), Cua (owner,
@@ -113,7 +112,9 @@ draw window material and use the flat #f5f5f7 / #2c2c2e instead.
      (resident size when the footprint is more than 1 GB above it), so their VMs' guest memory
      does not inflate them. Claude desktop
      threads are not session rows: their work runs on Anthropic's servers or inside the one
-     shared VM, which cannot be split per thread.
+     shared VM, which cannot be split per thread. Last, only when there are some:
+     "Claude Code (unmatched)" (×N for more than one): `claude` processes run by opencode that
+     could not be matched to a session (see "Claude Code brains").
    - **Other apps**: grey line = the named top apps in order, then "everything else",
      e.g. `Firefox, Spotlight indexing, everything else`; numbers = sum of its items.
      Items: the biggest non-session apps by name (up to 3, ranked by share of CPU +
@@ -156,7 +157,7 @@ running it: OpenChamber, OpenCode, Claude Code, Codex or Pi. The folded "Agent t
   Everything else in the database is OpenCode.
 - **Claude Code, Codex, Pi started on their own** (in a terminal): their CLI process with no
   opencode process among its ancestors, plus all its descendants, is one session. `claude`
-  processes under opencode stay in "Claude Code ×N" as before.
+  processes under opencode are session brains (below).
   - Listed only while working: its processes used ≥ 1% CPU in the last sample, or its
     transcript was written in the last 2 minutes. A harness waiting for the user disappears
     (its processes then count under "Everything else").
@@ -175,7 +176,25 @@ running it: OpenChamber, OpenCode, Claude Code, Codex or Pi. The folded "Agent t
 ## Not in v1
 
 Stopping processes, opening a session from the menu, notifications, a project-specific
-browser-test lock/queue, splitting "Claude Code ×N" per session, Codex desktop-app sessions.
+browser-test lock/queue, Codex desktop-app sessions.
+
+## Claude Code brains (owner, 2026-11-14)
+
+OpenChamber sessions on a Claude model use the provider `claude-code` (`session_v2.model`
+`providerID`): while such a session works, OpenChamber's opencode runs a `claude` CLI process as
+its "brain" (child of the opencode server or service, cwd = the session's folder, its own
+transcript under ~/.claude/projects). opencode stores no mapping, so the app infers it:
+
+1. Candidates: sessions on provider `claude-code` whose directory is the process's cwd, busy
+   ones first (else ones active in the last 10 minutes). Exactly one → that session.
+2. Several: the one whose latest user message (`session_message`, type user) equals or contains
+   the latest user message in the brain's transcript (whitespace ignored).
+3. Still several: the one that became busy closest to the process start.
+
+Matches are cached per process. A matched brain adds its CPU and memory to the session row and
+appears in the hover panel as "Claude Code (agent)"; a "thinking" row keeps its grey line and
+shows the brain's numbers. Brains that match nothing (or whose session has no row) stay in
+Agent tools as "Claude Code (unmatched)".
 
 ## Culprit line (owner, 2026-11-14)
 
