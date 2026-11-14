@@ -116,6 +116,8 @@ APP="build/Agent Load.app/Contents/MacOS/AgentLoad"
 
 `--mockup-data` renders the illustrative numbers from `docs/mockup.html` instead of live data.
 `--hover-claude` hovers the first Claude Code row.
+`AgentLoad --debug-click` presses the menu bar item through its real action after 4 s (to check
+that it stays highlighted while the dropdown is open).
 
 ## Source layout
 

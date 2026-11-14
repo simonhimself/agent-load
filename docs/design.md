@@ -86,7 +86,8 @@ redesign. The owner reviews the look carefully.
      numbers = sum of its items. Items: OpenChamber app (main app + all its helper
      processes), opencode server (the `opencode serve` started by OpenChamber),
      opencode service (`opencode serve --service` and its helpers such as opencode-pty),
-     Claude Code ×N (all `claude` CLI processes).
+     Claude Code ×N (the `claude` CLI processes run by opencode; Claude Code started on its own
+     is a session row, see "Harnesses").
    - **Other apps**: grey line = the named top apps in order, then "everything else",
      e.g. `Firefox, Spotlight indexing, everything else`; numbers = sum of its items.
      Items: the biggest non-session apps by name (up to 3, ranked by share of CPU +
