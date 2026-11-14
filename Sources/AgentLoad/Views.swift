@@ -180,10 +180,17 @@ struct SectionHeader: View {
     let title: String
     let p: Palette
     var topMargin: CGFloat = 12
+    /// Kept whole after the title (" · CLAUDE CODE"); only the title truncates.
+    var suffix: String? = nil
     var body: some View {
-        Text(title.uppercased()).font(sf(11, 500)).tracking(0.44).foregroundStyle(p.grey2)
-            .lineLimit(1).truncationMode(.tail).lineBox(11)
-            .padding(.top, topMargin).padding(.horizontal, 2).padding(.bottom, 3)
+        HStack(spacing: 0) {
+            Text(title.uppercased()).lineLimit(1).truncationMode(.tail)
+            if let suffix { Text(" · " + suffix.uppercased()).lineLimit(1).fixedSize().layoutPriority(1) }
+        }
+        .font(sf(11, 500)).tracking(0.44).foregroundStyle(p.grey2)
+        .lineBox(11)
+        .padding(.top, topMargin).padding(.horizontal, 2).padding(.bottom, 3)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -312,6 +319,8 @@ struct PanelItem: Identifiable {
 
 struct SidePanelView: View {
     let heading: String
+    /// Harness name after the session title in the heading (session panels only).
+    var headingSuffix: String? = nil
     let items: [PanelItem]
     /// A single grey line instead of items (thinking sessions).
     var note: String? = nil
@@ -320,7 +329,8 @@ struct SidePanelView: View {
     /// Session panel: heading = session title (the mockup's "On hover ·" prefix is a mockup
     /// annotation); trivial process kinds hidden.
     init(row: SessionRow) {
-        heading = "\(row.title) · \(row.harness.displayName)"   // shown in caps: "FIX LOGIN REDIRECT · CLAUDE CODE"
+        heading = row.title                     // shown in caps: "FIX LOGIN REDIRECT · CLAUDE CODE"
+        headingSuffix = row.harness.displayName
         switch row.state {
         case .thinking:
             items = []
@@ -341,7 +351,7 @@ struct SidePanelView: View {
     var body: some View {
         let p = Palette(scheme: scheme)
         VStack(alignment: .leading, spacing: 0) {
-            SectionHeader(title: heading, p: p, topMargin: 0)
+            SectionHeader(title: heading, p: p, topMargin: 0, suffix: headingSuffix)
             if let note {
                 Text(note).font(sf(11)).foregroundStyle(p.grey2).lineLimit(1).truncationMode(.tail)
                     .lineBox(11)   // grey line in the style of the rows' grey lines
