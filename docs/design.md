@@ -42,17 +42,22 @@ clipped to the rounded shape so the shadow follows the corners (unclipped, it ou
 square window). Older macOS: the menu material (`NSVisualEffectView`, `.menu`, behind-window,
 always active) with the same corners and shadow plus a 0.5 pt hairline ring (black 8% light,
 white 18% dark).
-Gauge cards are white at 75% (light) / white at 10% (dark) so they sit on the material.
 In dark mode the grey text is white at 60% / 50% and the row highlight white at 10%, which
 stay readable on the material over a bright desktop. These held up on the glass too, so they
 are unchanged. PNG renders (`--render-png`) cannot draw glass or window material and use the
 flat #f5f5f7 / #2c2c2e with the hairline ring instead.
 
 1. Headline with dot, verdict line in grey.
-2. Two gauge cards side by side:
-   - **CPU**: "7.3 of 8 cores" = 1-minute load average vs core count; bar = load / cores, capped.
-   - **Memory**: "13.1 of 16 GB" = memory used as Activity Monitor counts it
-     (app memory + wired + compressed); bar = used / total.
+2. Two gauges side by side, without cards ("B · No cards, bigger numbers", owner 2026-11-14):
+   - **CPU**: big "7.3" + small grey "of 8 cores" = 1-minute load average vs core count;
+     bar = load / cores, capped.
+   - **Memory**: big "13.1" + small grey "of 16 GB" = memory used as Activity Monitor counts
+     it (app memory + wired + compressed); bar = used / total. The grey "Swapping N MB/s"
+     line sits under this bar when shown.
+   - Label "CPU" / "Memory" 11 pt grey; number 20 pt semibold (tracking −0.01 em, line
+     height 1.25); unit 12 pt regular grey, 3 pt after the number. Bar 6 pt high, 6 pt below
+     the number, radius 3; track black 8% (dark: white 12%). 16 pt between the two gauges,
+     each padded 2/4/4 pt; then a 0.5 pt hairline (black 10%, dark white 15%) and SESSIONS.
    - Bar colour follows the status colour of that resource.
 3. **SESSIONS**: one row per session whose work is not completed (decided by the owner
    2026-11-13), whether it is using the machine, thinking, or waiting. A session is
