@@ -14,13 +14,21 @@ struct Palette {
     let scheme: ColorScheme
     private func pick(_ light: UInt32, _ dark: UInt32) -> Color { Color(hex: scheme == .dark ? dark : light) }
     var background: Color { pick(0xF5F5F7, 0x2C2C2E) }   // .menu / .side
-    var card: Color { pick(0xFFFFFF, 0x3A3A3C) }         // .gg gauge cards
+    /// .gg gauge cards. Translucent so they sit on the menu material without looking heavy:
+    /// white at 75% in light mode, white at 10% in dark mode (owner, 2026-11-14).
+    var card: Color { scheme == .dark ? Color.white.opacity(0.10) : Color.white.opacity(0.75) }
     var text: Color { pick(0x1D1D1F, 0xF5F5F7) }         // body text
-    var grey1: Color { pick(0x6E6E73, 0x98989D) }        // .verdict, .k
-    var grey2: Color { pick(0x86868B, 0x8E8E93) }        // .sec, .pj, .sub, .ft
+    // Dark mode greys and the row highlight are translucent white (like the system's secondary
+    // label colour), so they stay readable on the dark menu material over a bright desktop, where
+    // the flat #8E8E93 got lost (2026-11-14). Over the flat render colour they look as before.
+    var grey1: Color { scheme == .dark ? Color.white.opacity(0.60) : Color(hex: 0x6E6E73) }   // .verdict, .k
+    var grey2: Color { scheme == .dark ? Color.white.opacity(0.50) : Color(hex: 0x86868B) }   // .sec, .pj, .sub, .ft
     var track: Color { pick(0xE5E5EA, 0x48484A) }        // gauge track
-    var rowHover: Color { pick(0xE8E8ED, 0x3A3A3C) }     // .row.on
+    var rowHover: Color { scheme == .dark ? Color.white.opacity(0.10) : Color(hex: 0xE8E8ED) }   // .row.on
     var divider: Color { pick(0xD2D2D7, 0x48484A) }      // footer border
+    /// Hairline ring around the dropdown and the hover panel, as native menus have on macOS 26
+    /// (measured from a native NSMenu: slightly darker than the menu in light mode, lighter in dark).
+    var menuBorder: Color { scheme == .dark ? Color.white.opacity(0.18) : Color.black.opacity(0.08) }
     static func status(_ l: StatusLevel) -> Color {
         switch l {
         case .green: return Color(hex: 0x34C759)
@@ -105,6 +113,9 @@ struct DropdownView: View {
     @Environment(\.colorScheme) private var scheme
     /// Fixed "now" for PNG renders; nil = live clock.
     var renderNow: Date? = nil
+    /// Paint the flat #f5f5f7 menu colour behind everything. Only for PNG renders: the live
+    /// window shows the translucent system menu material instead (ImageRenderer cannot draw it).
+    var flatBackground = true
 
     var body: some View {
         let p = Palette(scheme: scheme)
@@ -115,10 +126,11 @@ struct DropdownView: View {
                 Text("Measuring…").font(sf(13)).foregroundStyle(p.grey2).lineBox(13).padding(.vertical, 20)
             }
         }
-        // CSS `width: 340px` excludes padding (content-box), so the card is 340 + 2×12 = 364 pt wide.
-        .frame(width: 340, alignment: .leading)
+        // CSS `width: 376px` excludes padding (content-box), so the card is 376 + 2×12 = 400 pt wide
+        // (widened from 340 by the owner, 2026-11-14; the extra room goes to the name column).
+        .frame(width: 376, alignment: .leading)
         .padding(.top, 12).padding(.horizontal, 12).padding(.bottom, 10)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(p.background))
+        .menuSurface(flat: flatBackground, p: p)
         .coordinateSpace(name: "dropdown")
         .onPreferenceChange(RowFrameKey.self) { model.rowFrames = $0 }
     }
@@ -318,6 +330,8 @@ struct PanelItem: Identifiable {
 }
 
 struct SidePanelView: View {
+    /// Flat menu colour behind the panel (PNG renders only; live it sits on the menu material).
+    var flatBackground = true
     let heading: String
     /// Harness name after the session title in the heading (session panels only).
     var headingSuffix: String? = nil
@@ -373,7 +387,7 @@ struct SidePanelView: View {
         // Content-box like the mockup: 240 + 2×10 = 260 pt wide.
         .frame(width: 240, alignment: .leading)
         .padding(.top, 10).padding(.horizontal, 10).padding(.bottom, 8)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(p.background))
+        .menuSurface(flat: flatBackground, p: p)
     }
 
     /// Hides trivial helpers (a `grep` or `tail` at 0% and a few MB) so the panel shows the
@@ -406,6 +420,20 @@ struct MoreButton: View {
             .onHover { hover = $0 }
             .onTapGesture(perform: action)
             .help("More")
+    }
+}
+
+// MARK: - Menu surface
+
+/// Native menu corner: circular 12 pt, measured from a native NSMenu on macOS 26.
+let menuCornerRadius: CGFloat = 12
+
+extension View {
+    /// The dropdown / hover panel surface: the flat menu colour for PNG renders (live, the window's
+    /// NSVisualEffectView shows the menu material instead), plus the native hairline ring.
+    func menuSurface(flat: Bool, p: Palette) -> some View {
+        background(RoundedRectangle(cornerRadius: menuCornerRadius).fill(flat ? p.background : Color.clear))
+            .overlay(RoundedRectangle(cornerRadius: menuCornerRadius).strokeBorder(p.menuBorder, lineWidth: 0.5))
     }
 }
 

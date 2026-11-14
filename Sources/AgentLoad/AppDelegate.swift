@@ -46,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: KeyPanel!
     private var sidePanel: NSPanel!
     private var sideHost: NSHostingView<AnyView>!
+    private var dropHost: NSHostingView<DropdownView>!
     private var clickMonitor: Any?
     /// Newest snapshot; given to the views only while the dropdown is open.
     private var latest: Snapshot?
@@ -88,6 +89,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 fflush(stdout)
             }
         }
+        // --debug-dark: dark appearance for this run only (to check the menu material in dark
+        // mode without changing the system setting).
+        if CommandLine.arguments.contains("--debug-dark") { NSApp.appearance = NSAppearance(named: .darkAqua) }
         // --debug-click: presses the menu bar item through its real action (as a mouse click
         // does), to check that it stays highlighted while the dropdown is open.
         if CommandLine.arguments.contains("--debug-click") {
@@ -137,7 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: Panels
 
     private func makePanels() {
-        panel = KeyPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 400),
+        panel = KeyPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 400),
                          styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
         panel.isOpaque = false
         panel.backgroundColor = .clear
@@ -147,9 +151,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.onCancel = { [weak self] in self?.closePanel() }
-        let host = NSHostingView(rootView: DropdownView(model: model))
-        host.sizingOptions = [.intrinsicContentSize]
-        panel.contentView = host
+        // Translucent system menu material behind the SwiftUI content, like native menus.
+        dropHost = NSHostingView(rootView: DropdownView(model: model, flatBackground: false))
+        dropHost.sizingOptions = [.intrinsicContentSize]
+        panel.contentView = Self.menuMaterial(around: dropHost)
         NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: panel, queue: .main) { [weak self] _ in
             self?.closePanel()
         }
@@ -163,7 +168,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sidePanel.ignoresMouseEvents = true      // purely informational; never steals the hover
         sidePanel.isReleasedWhenClosed = false
         sideHost = NSHostingView(rootView: AnyView(EmptyView()))
-        sidePanel.contentView = sideHost
+        sidePanel.contentView = Self.menuMaterial(around: sideHost)
+    }
+
+    /// `NSVisualEffectView` with the menu material (desktop shows through, blurred), clipped to
+    /// the native menu corner (12 pt, measured on macOS 26) with a mask image so the blur, the
+    /// content and the window shadow all get the rounded shape. `host` fills it.
+    static func menuMaterial(around host: NSView) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.material = .menu
+        v.blendingMode = .behindWindow
+        v.state = .active
+        let r = menuCornerRadius
+        let mask = NSImage(size: NSSize(width: 2 * r + 1, height: 2 * r + 1), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: r, yRadius: r).fill()
+            return true
+        }
+        mask.capInsets = NSEdgeInsets(top: r, left: r, bottom: r, right: r)
+        mask.resizingMode = .stretch
+        v.maskImage = mask
+        host.frame = v.bounds
+        host.autoresizingMask = [.width, .height]
+        v.addSubview(host)
+        return v
     }
 
     @objc private func togglePanel() {
@@ -206,7 +234,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Sizes the dropdown to its SwiftUI content and hangs it below the status item.
     private func layoutPanel() {
-        guard let host = panel.contentView, let itemWin = statusItem.button?.window,
+        guard let host = dropHost, let itemWin = statusItem.button?.window,
               let screen = itemWin.screen ?? NSScreen.main else { return }
         let size = host.fittingSize
         let vis = screen.visibleFrame
@@ -215,17 +243,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         x = max(x, vis.minX + 4)
         let top = itemWin.frame.minY - 3
         let frame = NSRect(x: x, y: top - size.height, width: size.width, height: size.height)
-        if frame != panel.frame { panel.setFrame(frame, display: true) }
+        if frame != panel.frame { panel.setFrame(frame, display: true); panel.invalidateShadow() }
     }
 
     /// Shows/hides/positions the hover side panel for the hovered session row.
     private func updateSidePanel() {
         guard isOpen, let id = model.hoveredRowID, let snap = model.snapshot,
-              let content = Self.sidePanel(for: id, in: snap),
+              var content = Self.sidePanel(for: id, in: snap),
               let rowFrame = model.rowFrames[id] else {
             if sidePanel.isVisible { panel.removeChildWindow(sidePanel); sidePanel.orderOut(nil) }
             return
         }
+        content.flatBackground = false          // live: on the menu material
         sideHost.rootView = AnyView(content)
         let size = sideHost.fittingSize
         let vis = (panel.screen ?? NSScreen.main)?.visibleFrame ?? .zero
@@ -238,6 +267,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var top = panel.frame.maxY - rowFrame.minY
         top = max(top, vis.minY + size.height)
         sidePanel.setFrame(NSRect(x: x, y: top - size.height, width: size.width, height: size.height), display: true)
+        sidePanel.invalidateShadow()
         if !sidePanel.isVisible {
             panel.addChildWindow(sidePanel, ordered: .above)
             sidePanel.orderFront(nil)
