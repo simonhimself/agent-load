@@ -87,6 +87,8 @@ final class AppModel: ObservableObject {
     var onHoverChange: ((String?) -> Void)?
     var onOpenFolder: ((SessionRow) -> Void)?
     var onQuit: (() -> Void)?
+    /// "…" button in the header: shows the small menu (Open at Login, Quit).
+    var onMore: (() -> Void)?
 }
 
 struct RowFrameKey: PreferenceKey {
@@ -115,7 +117,7 @@ struct DropdownView: View {
         }
         // CSS `width: 340px` excludes padding (content-box), so the card is 340 + 2×12 = 364 pt wide.
         .frame(width: 340, alignment: .leading)
-        .padding(.top, 12).padding(.horizontal, 12).padding(.bottom, 8)
+        .padding(.top, 12).padding(.horizontal, 12).padding(.bottom, 10)
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(p.background))
         .coordinateSpace(name: "dropdown")
         .onPreferenceChange(RowFrameKey.self) { model.rowFrames = $0 }
@@ -123,9 +125,12 @@ struct DropdownView: View {
 
     @ViewBuilder private func content(_ s: Snapshot, _ p: Palette) -> some View {
         // 1. Headline + verdict
+        // The "…" button top-right replaces the old footer (owner chose option C, 2026-11-14).
         HStack(spacing: 7) {
             Circle().fill(Palette.status(s.level)).frame(width: 8, height: 8)
             Text(s.headline).font(sf(15, 600)).foregroundStyle(p.text).lineLimit(1)
+            Spacer(minLength: 6)
+            MoreButton(p: p) { model.onMore?() }
         }
         .lineBox(15)
         Text(s.verdict).font(sf(12)).foregroundStyle(p.grey1).lineBox(12)
@@ -166,19 +171,7 @@ struct DropdownView: View {
                 .hoverable(id: g.id, model: model)
         }
 
-        // 6. Footer
-        VStack(spacing: 0) {
-            p.divider.frame(height: 1)
-            // "Updated N s ago" removed (owner, 2026-11-14): only Quit, on the right.
-            HStack {
-                Spacer()
-                Text("Quit").contentShape(Rectangle()).onTapGesture { model.onQuit?() }
-            }
-            .font(sf(11)).foregroundStyle(p.grey2)
-            .lineBox(11)
-            .padding(.top, 6)
-        }
-        .padding(.top, 6)
+        // No footer: Quit lives in the "…" menu in the header.
     }
 
 }
@@ -378,5 +371,23 @@ struct SidePanelView: View {
     static func shownKinds(_ kinds: [KindGroup]) -> [KindGroup] {
         let significant = kinds.filter(isWorthShowing)
         return significant.isEmpty ? Array(kinds.prefix(3)) : significant
+    }
+}
+
+/// Small grey "…" button (22 × 22) in the header; highlighted on hover like a toolbar button.
+struct MoreButton: View {
+    let p: Palette
+    let action: () -> Void
+    @State private var hover = false
+    var body: some View {
+        Image(systemName: "ellipsis")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(hover ? p.text : p.grey2)
+            .frame(width: 22, height: 22)
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(hover ? p.rowHover : Color.clear))
+            .contentShape(Rectangle())
+            .onHover { hover = $0 }
+            .onTapGesture(perform: action)
+            .help("More")
     }
 }

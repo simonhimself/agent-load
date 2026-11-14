@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import ServiceManagement
 import AgentLoadCore
 
 /// Borderless panel that can take key focus (needed for hover tracking and closing on
@@ -9,6 +10,13 @@ final class KeyPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
     override func cancelOperation(_ sender: Any?) { onCancel?() }   // Esc closes
+    /// ⌘Q quits while the dropdown is open (the app has no main menu as a menu-bar-only app).
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "q" {
+            NSApp.terminate(nil); return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
 }
 
 /// The menu bar app.
@@ -62,6 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: row.folderPath)])
         }
         model.onQuit = { NSApp.terminate(nil) }
+        model.onMore = { [weak self] in self?.showMoreMenu() }
 
         refresh()
         schedule(interval: Self.closedInterval)
@@ -264,4 +273,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
     }
+
+    // MARK: - "…" menu
+
+    /// Native menu at the mouse: "Open at Login" (checkmark = registered) and "Quit Agent Load ⌘Q".
+    /// Open at Login uses SMAppService.mainApp, so it registers whichever copy is running
+    /// (normally /Applications/Agent Load.app).
+    private func showMoreMenu() {
+        let menu = NSMenu()
+        let login = NSMenuItem(title: "Open at Login", action: #selector(toggleOpenAtLogin), keyEquivalent: "")
+        login.target = self
+        login.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        menu.addItem(login)
+        menu.addItem(.separator())
+        let quit = NSMenuItem(title: "Quit Agent Load", action: #selector(quitApp), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
+
+    @objc private func toggleOpenAtLogin() {
+        do {
+            if SMAppService.mainApp.status == .enabled { try SMAppService.mainApp.unregister() }
+            else { try SMAppService.mainApp.register() }
+        } catch {
+            NSLog("AgentLoad: Open at Login failed: \(error.localizedDescription)")
+        }
+    }
+
+    @objc private func quitApp() { NSApp.terminate(nil) }
 }

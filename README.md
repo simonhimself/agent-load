@@ -30,15 +30,14 @@ scripts/install.sh              # builds it, installs it in /Applications and st
 ```
 
 The dot appears in the menu bar. Run `scripts/install.sh` again after pulling changes to
-update the installed app. To start it at login, add **Agent Load** under
-**System Settings → General → Login Items & Extensions → Open at Login**.
+update the installed app. To start it at login, choose **… → Open at Login** in the dropdown.
 
 ## How to use it
 
 1. Glance at the dot: the number is how many agent sessions have unfinished work.
 2. Click it for the breakdown: status, CPU and memory gauges, one row per session, then
    **Agent tools** (OpenChamber, opencode, Claude Code) and **Other apps**.
-3. Hover any row for its details, and click **Quit** to close the app.
+3. Hover any row for its details. The **…** button top-right has **Open at Login** and **Quit**.
 
 CPU is shown per core: 100% is one full core, so 8 cores give 800%. The CPU gauge shows
 demand over the last minute, including programs waiting for a turn, so it can exceed the
