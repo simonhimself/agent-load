@@ -26,11 +26,11 @@ Full Xcode is not required.
 ```sh
 git clone https://github.com/simonhimself/agent-load.git
 cd agent-load
-scripts/build-app.sh            # builds "build/Agent Load.app"
-open "build/Agent Load.app"     # the dot appears in the menu bar
+scripts/install.sh              # builds it, installs it in /Applications and starts it
 ```
 
-To start it at login, copy `build/Agent Load.app` to `/Applications`, then add it under
+The dot appears in the menu bar. Run `scripts/install.sh` again after pulling changes to
+update the installed app. To start it at login, add **Agent Load** under
 **System Settings → General → Login Items & Extensions → Open at Login**.
 
 ## How to use it
@@ -94,4 +94,5 @@ Command Line Tools are installed.
 | [`docs/design.md`](docs/design.md) | Agreed design: status rules, listing rules, every dropdown element |
 | [`docs/mockup.html`](docs/mockup.html) | Approved visual reference |
 | [`scripts/build-app.sh`](scripts/build-app.sh) | Builds and ad-hoc signs the `.app` |
+| [`scripts/install.sh`](scripts/install.sh) | Builds, installs in `/Applications` and starts the app |
 | [`scripts/test.sh`](scripts/test.sh) | Runs the unit tests |
